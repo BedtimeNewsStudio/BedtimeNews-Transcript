@@ -400,24 +400,168 @@ def extract_old_new(b):
     return None, None
 
 
-def render_appendix(app):
+def render_appendix(app, refs=None):
     out = []
-    out += ['---', '', '## 附录', '']
+    out += ['## 附录', '']
     if app.checks:
-        out += ['### 联网事实核对及信息来源', '']
-        out += [f'- {c}' for c in app.checks]
+        out += ['### 信息来源', '']
+        out += [f'- {retitle_bullets(c)}' for c in app.checks]
+        out.append('')
+    if refs:
+        out += ['### 本文链接', '']
+        seen = set()
+        for title, url in refs.values():
+            k = norm(url)
+            if k in seen:
+                continue
+            seen.add(k)
+            out.append(f'- [{title}]({url})')
         out.append('')
     if app.corr:
         out += ['### 事实订正', '']
         for idx, (b, _old, _new) in enumerate(app.corr, 1):
-            text = re.sub(r'\s+', ' ', b).strip()
+            text = retitle_bullets(re.sub(r'\s+', ' ', b).strip())
             out.append(f'[^{idx}]: {text}')
         out.append('')
     if app.pending:
         out += ['### 待核对', '']
-        out += [f'- {p}' for p in app.pending]
+        out += [f'- {retitle_bullets(p)}' for p in app.pending]
         out.append('')
     return '\n'.join(out)
+
+
+# ------------------------------------------------- 正文转换（链接/分段/标题）
+
+DOMAIN_TITLES = {
+    'zhihu.com': '知乎', 'wikipedia.org': '维基百科', 'thepaper.cn': '澎湃新闻',
+    'people.com.cn': '人民网', 'xinhuanet.com': '新华网', 'news.cn': '新华网',
+    'cctv.com': '央视网', 'guancha.cn': '观察者网', 'jiemian.com': '界面新闻',
+    'caixin.com': '财新网', 'yicai.com': '第一财经', '21jingji.com': '21世纪经济报道',
+    'nbd.com.cn': '每日经济新闻', 'cb.com.cn': '中国经营报', 'gov.cn': '中国政府网',
+    'mee.gov.cn': '生态环境部', 'mof.gov.cn': '财政部', 'stats.gov.cn': '国家统计局',
+    'sasac.gov.cn': '国资委', 'nhc.gov.cn': '国家卫健委', 'court.gov.cn': '最高人民法院',
+    'cnbc.com': 'CNBC', 'reuters.com': '路透社', 'bbc.com': 'BBC', 'nytimes.com': '纽约时报',
+    'nature.com': 'Nature', 'science.org': 'Science', 'doi.gov': '美国内政部',
+    'singstat.gov.sg': '新加坡统计局', 'mongabay.com': 'Mongabay', 'spgchinaratings.cn': '标普信评',
+    'issafrica.org': '非洲安全研究所', 'weibo.com': '微博', 'weibo.cn': '微博',
+    'bilibili.com': '哔哩哔哩', 'youtube.com': 'YouTube', 'github.com': 'GitHub',
+    'news.sina.com.cn': '新浪新闻', 'finance.sina.com.cn': '新浪财经', 'ifeng.com': '凤凰网',
+    'huanqiu.com': '环球网', 'cyol.com': '中国青年报', 'gmw.cn': '光明网',
+    'workercn.cn': '工人日报', 'chinanews.com': '中国新闻网', 'ce.cn': '中国经济网',
+}
+TITLE_PLANS = None
+BEDTIME_RE = re.compile(r'https?://[^\s)」』】]*(?:bedtime\.news|archive\.bedtime\.news)[^\s)」』】]*')
+WIKI_LINK_RE = re.compile(r'\[([^\]]+)\]\((?:/[^)]*|[^)]*\.md|https?://[^)]*bedtime\.news[^)]*)\)')
+EXT_LINK_RE = re.compile(r'\[([^\]]+)\]\((https?://[^)\s]+)\)')
+BARE_URL_RE = re.compile(r'(?<![\w.])https?://[^\s）)」』】。，；、]+')
+HEAD_NUM_RE = re.compile(r'^(#{2,3})\s*(?:\d{1,3}\s*[.、:：]\s*|[一二三四五六七八九十]{1,3}\s*[、.:：]\s*|第\s*[0-9一二三四五六七八九十百]{1,4}\s*[节章部分集]\s*[、.:：]?\s*)(.+?)\s*$', re.M)
+
+
+def link_title(url, anchor=''):
+    if anchor:
+        a = anchor.strip()
+        if a and not a.lower().startswith(('http', 'www.')):
+            return a[:40]
+    m = re.match(r'https?://([^/]+)', url)
+    dom = m.group(1).lower().removeprefix('www.') if m else url[:30]
+    for k, v in DOMAIN_TITLES.items():
+        if dom == k or dom.endswith('.' + k) or dom.endswith(k):
+            return v
+    return dom[:30]
+
+
+def collect_refs_and_strip(body, refs):
+    """正文：内链/bedtime.news 链接移除（留文字）；行中 URL → 脚注标记 [^refN]；
+    独立成行的 URL → 移出正文登记到 refs（本文链接）。返回 (body, 脚注定义列表)。"""
+    def wiki_sub(m):
+        return m.group(1)
+    body = WIKI_LINK_RE.sub(wiki_sub, body)
+    body = BEDTIME_RE.sub('', body)
+
+    refnotes = []
+    counter = [0]
+
+    def make_note(anchor, url):
+        counter[0] += 1
+        label = f'ref{counter[0]}'
+        title = link_title(url, anchor)
+        refnotes.append(f'[^{label}]: [{title}]({url})')
+        return f'[^{label}]'
+
+    out_lines = []
+    for line in body.split('\n'):
+        stripped = line.strip()
+        # 独立 URL 行：若上一输出段是正文段落 → 脚注锚到该段末；否则悬空进「本文链接」
+        if re.fullmatch(r'https?://[^\s）)」』】。，；、]+', stripped):
+            j = len(out_lines) - 1
+            while j >= 0 and not out_lines[j].strip():
+                j -= 1
+            if j >= 0 and not out_lines[j].strip().startswith(('#', '>', '- ', 'http')) \
+                    and re.search(r'[。！？：；]', out_lines[j]):
+                out_lines[j] = out_lines[j].rstrip() + make_note('', stripped)
+                continue
+            refs[norm(stripped)] = (link_title(stripped), stripped)
+            continue
+        # 行中 markdown 外链 [text](url) → 脚注
+        def ext_sub(m):
+            anchor, url = m.group(1).strip(), m.group(2)
+            return make_note(anchor, url)
+        line = EXT_LINK_RE.sub(ext_sub, line)
+        # 行中裸 URL → 脚注
+        def bare_sub(m):
+            url = m.group(0).rstrip('.,;、')
+            return make_note('', url)
+        line = BARE_URL_RE.sub(bare_sub, line)
+        out_lines.append(line)
+    body = '\n'.join(out_lines)
+    body = re.sub(r'\n{3,}', '\n\n', body)
+    return body.strip(), refnotes
+
+
+def merge_short_paragraphs(body, short=80, cap=380):
+    """把连续的单句小段合并成正常段落（≤cap 字；问句不打断处保留问答边界）。"""
+    blocks = re.split(r'\n\n+', body)
+    out, run = [], []
+    def flush():
+        if run:
+            merged = ''
+            for p in run:
+                merged += p if not merged else p
+            out.append(merged)
+            run.clear()
+    for blk in blocks:
+        b = blk.strip()
+        if not b:
+            continue
+        lines = b.split('\n')
+        is_simple = (len(lines) == 1 and len(b) <= short
+                     and not b.startswith(('#', '>', '-', '- ', 'http'))
+                     and not b.endswith('？') and not b.endswith('：')
+                     and not re.match(r'^-{3,}$', b))
+        if is_simple:
+            if sum(len(p) for p in run) + len(b) <= cap:
+                run.append(b)
+                continue
+            flush()
+            run.append(b)
+            continue
+        flush()
+        out.append(b)
+    flush()
+    return '\n\n'.join(out)
+
+
+def denumber_headings(body):
+    return HEAD_NUM_RE.sub(lambda m: f'{m.group(1)} {m.group(2)}', body)
+
+
+def retitle_bullets(text):
+    """附录条目里的裸 URL → 带标题的 markdown 链接；bedtime.news 链接删除。"""
+    text = BEDTIME_RE.sub('', text)
+    def sub(m):
+        url = m.group(0).rstrip('.,;、)')
+        return f'[{link_title(url)}]({url})'
+    return BARE_URL_RE.sub(sub, text)
 
 # ---------------------------------------------------------------- PR mapping
 
@@ -437,6 +581,37 @@ def branch_key(x):
     if dm:
         return (sec, int(dm.group(1)))
     return (sec, x)
+
+
+COMMIT_SKIP_HEAD = re.compile(r'组段|重排|格式规范|格式统一|同步|tip对齐|对齐|合并|回退|字体|font|链接清理')
+
+
+def harvest_commits(force=False):
+    """遍历 fork 全部 proofread 分支，收集 每个文稿文件 的 commit 信息全文。"""
+    cache = REPO / '.localonly' / 'commit-msgs.json'
+    if cache.exists() and not force:
+        return json.loads(cache.read_text())
+    refs = subprocess.run(
+        ['git', 'for-each-ref', '--format=%(refname)', 'refs/remotes/origin-pr/proofread/'],
+        cwd=INTEG, capture_output=True, text=True, check=True).stdout.split()
+    print(f'harvesting commit messages from {len(refs)} branches …')
+    r = subprocess.run(
+        ['git', 'log', '--no-merges', '--format=%x00%B%x01', '--name-only'] + refs,
+        cwd=INTEG, capture_output=True, text=True)
+    data = {}
+    for blk in r.stdout.split('\x00')[1:]:
+        body, _, rest = blk.partition('\x01')
+        body = body.strip()
+        subj = body.split('\n')[0].strip()
+        if not body or COMMIT_SKIP_HEAD.search(subj):
+            continue
+        for f in (l.strip() for l in rest.split('\n')):
+            if f.endswith('.md') and '/' in f:
+                data.setdefault(f, []).append(body)
+    cache.parent.mkdir(exist_ok=True)
+    cache.write_text(json.dumps(data, ensure_ascii=False))
+    print(f'  commit messages for {len(data)} files')
+    return data
 
 
 def load_prs():
@@ -494,28 +669,43 @@ def resolve(cfg_name, cfg, subdir, base, title):
     return None
 
 
-def video_links(tabs):
+def video_links(tabs, linkstatus=None, epnum=None):
     lines, notes = [], []
+    had_yt = False
     for label, tnotes, bvids, yts in tabs:
         note_text = ' '.join(tnotes)
         if label == 'B站':
             if bvids:
                 tag = '（非官方补档）' if re.search(r'补档|其它用户上传|其他用户上传', note_text) else ''
-                for b in bvids:
-                    lines.append(f'- [Bilibili{tag}](https://www.bilibili.com/video/{b})')
+                for bv in bvids:
+                    st = (linkstatus or {}).get('bili', {}).get(bv, {}).get('status')
+                    if st == 'dead':
+                        notes.append('B站视频已失效。')
+                        continue
+                    lines.append(f'- [Bilibili{tag}](https://www.bilibili.com/video/{bv})')
             if re.search(r'已被删除|未找到原视频', note_text):
                 notes.append('B站官方视频已删除。')
         elif label == 'YouTube':
             for y in yts:
                 if re.search(r'尚未发布|此处不适用|^无$', note_text):
                     continue
-                tag = '（非官方补档）' if re.search(r'补档|其它用户上传|其他用户上传', note_text) else ''
+                st = (linkstatus or {}).get('yt', {}).get(y, {})
+                if st.get('status') == 'dead':
+                    continue
+                had_yt = True
+                tag = '（非官方补档）' if re.search(r'补档|其它用户上传|其他用户上传', note_text) \
+                    or (st.get('author') and not st.get('official')) else ''
                 lines.append(f'- [YouTube{tag}](https://www.youtube.com/watch?v={y})')
             if re.search(r'尚未发布', note_text):
                 notes.append('YouTube 官方频道尚未发布本集。')
+    if epnum is not None and not had_yt:
+        pick = (linkstatus or {}).get('discover', {}).get(epnum)
+        if pick:
+            tag = '' if pick.get('official') else '（非官方补档）'
+            lines.append(f'- [YouTube{tag}](https://www.youtube.com/watch?v={pick["ytid"]})')
     if not lines and not notes:
         return ''
-    out = ['## 视频链接', '']
+    out = []
     out += lines
     for n in notes:
         out += ['', n]
@@ -523,16 +713,58 @@ def video_links(tabs):
     return '\n'.join(out)
 
 
-def build_one(raw, bodies):
+def build_one(raw, bodies, commit_msgs=(), linkstatus=None, epnum=None, cfg_name=None, folder=None, name=None):
     title = re.search(r'^title:\s*(.+)', raw, re.M)
     title = title.group(1).strip() if title else ''
     tabs, _ = parse_tabs_zone(raw)
-    vlinks = video_links(tabs)
+    vlinks = video_links(tabs, linkstatus, epnum)
     body = clean_body(raw)
+    cfg_name = cfg_name  # noqa
 
     app = Appendix()
     for _num, b in bodies:
         classify_pr_body(b, app)
+    for cm in commit_msgs:  # commit 信息里的验证/勘误
+        classify_pr_body(cm, app)
+
+    # 微博转发链等非正文段落删除
+    body = re.sub(r'^.*?转发动态[：:].*\n?', '', body, flags=re.M)
+    body = re.sub(r'^.*//@[^：:]{1,30}[：:].*\n?', '', body, flags=re.M)
+
+    refs = {}
+    body, refnotes = collect_refs_and_strip(body, refs)  # 内链移除；行中URL→脚注；独立URL→本文链接
+
+    # 日期行 → 摘要（有话题列表才提取；纯日期行保留）
+    summary = ''
+    blocks = re.split(r'\n\n+', body)
+    for bi, blk in enumerate(blocks):
+        m = re.match(r'^睡前消息\s*(?:\d{1,4}|本期话题|今日话题)?\s*[：:]?\s*(.{15,})$', blk.strip())
+        if m and '；' in m.group(1):
+            summary = f'{m.group(1).strip()}'
+            blocks.pop(bi)
+            break
+    body = '\n\n'.join(blocks)
+    body = merge_short_paragraphs(body)            # 字幕式/单句小段合并
+    body = denumber_headings(body)                 # 小节标题去编号
+
+    def apply_titles(tbl):
+        nonlocal body
+        for item in tbl:
+            anchor = norm(item.get('anchor', ''))[:20]
+            t = item.get('title', '').strip()
+            if not anchor or not t:
+                continue
+            blocks = re.split(r'\n\n+', body)
+            for bi, blk in enumerate(blocks):
+                first = re.sub(r'^[-*>#\s]+', '', blk.strip())
+                if norm(first)[:20] == anchor:
+                    blocks.insert(bi, f'## {t}')
+                    break
+            body = '\n\n'.join(blocks)
+
+    plan = TITLE_PLANS.get((cfg_name, folder, name)) if TITLE_PLANS else None
+    if plan and not re.search(r'^## ', body, re.M):  # 已有小节的不再加
+        apply_titles(plan)
 
     # 脚注锚定：在正文里找“改后文本”，插入 [^N]
     anchored = []
@@ -561,11 +793,17 @@ def build_one(raw, bodies):
 
     out = [f'# {title}', '']
     if vlinks:
-        out.append(vlinks)
-    out.append(body)
-    if not app.empty():
+        out += ['## 视频', '', vlinks]
+    if summary:
+        out += ['## 摘要', '', summary, '']
+    out += ['## 正文', '']
+    out.append(re.sub(r'^(?:-{3,}\n+)+', '', body))
+    if not app.empty() or refs or refnotes:
         out.append('')
-        out.append(render_appendix(app))
+        out.append(render_appendix(app, refs))
+    if refnotes:
+        out.append('')
+        out += refnotes
     text = '\n'.join(out).rstrip() + '\n'
     return text, app, anchored
 
@@ -591,8 +829,12 @@ def main():
     ap.add_argument('--refresh-prs', action='store_true')
     args = ap.parse_args()
 
-    if args.refresh_prs and PRS_CACHE.exists():
-        PRS_CACHE.unlink()
+    if args.refresh_prs:
+        if PRS_CACHE.exists():
+            PRS_CACHE.unlink()
+        cmc = REPO / '.localonly' / 'commit-msgs.json'
+        if cmc.exists():
+            cmc.unlink()
 
     r = subprocess.run(['git', 'rev-parse', INTEG_BRANCH],
                        cwd=INTEG, capture_output=True, text=True)
@@ -600,6 +842,16 @@ def main():
         sys.exit(f'integration worktree 不可用: {r.stderr}')
 
     pmap = pr_map()
+    cmap = harvest_commits(force=args.refresh_prs)
+    ls_path = REPO / '.localonly' / 'linkstatus.json'
+    linkstatus = json.loads(ls_path.read_text()) if ls_path.exists() else None
+    tp_dir = REPO / '.localonly' / 'section-titles'
+    tp = {}
+    if tp_dir.exists():
+        for p in tp_dir.rglob('*.json'):
+            parts = p.relative_to(tp_dir).with_suffix('').parts
+            tp[tuple(parts)] = json.loads(p.read_text())
+    globals()['TITLE_PLANS'] = tp
     configs = {k: v for k, v in CONFIGS.items()
                if args.section is None or k == args.section}
     missing_pr, no_app, unrouted = [], [], []
@@ -623,7 +875,11 @@ def main():
             bodies = pmap.get(key, []) if key is not None else []
             if key is not None and not bodies:
                 missing_pr.append(f'{cfg_name}/{folder}/{name}')
-            text, app, anchored = build_one(raw, bodies)
+            src_path = f'{cfg["src"]}/{subdir}/{f.name}' if subdir else f'{cfg["src"]}/{f.name}'
+            m_num = re.match(r'^(\d+)\.md$', f.name)
+            epnum = int(m_num.group(1)) if (cfg_name == 'ShuiQianXiaoXi' and m_num) else None
+            text, app, anchored = build_one(raw, bodies, cmap.get(src_path, []),
+                                            linkstatus, epnum, cfg_name, folder, name)
             out_path.parent.mkdir(parents=True, exist_ok=True)
             out_path.write_text(text)
             if app.empty():
