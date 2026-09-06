@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 bedtimenews-md builder
-把 bedtimenews-archive-contents integration 分支上「多步校对完成」的睡前消息文稿
+把 bedtimenews-archive-contents integration 分支上「多步校对完成」的五个栏目文稿
 转换为本仓库的干净 Markdown 版本：
   - 4 位 padding 期号，每 100 期一个文件夹（0001-0100 …）；无期号 → misc/
   - 顶部 B站/YouTube 嵌入改为纯 URL 链接（官方优先，非官方补档标注）
@@ -10,9 +10,10 @@ bedtimenews-md builder
     （错别字、标点、格式、音频复核过程记录一律不入附录；同音错录直接修复不提及）
 
 Usage:
-  python3 build.py                # 全量生成（已存在且不强制则跳过）
-  python3 build.py --force        # 覆盖重生成
-  python3 build.py --only 116     # 只生成文件名含 116 的集
+  python3 build.py                      # 全栏目全量生成（已存在且不强制则跳过）
+  python3 build.py --force              # 覆盖重生成
+  python3 build.py --section CanKaoXinXi --force
+  python3 build.py --only 116 --force   # 只生成文件名含 116 的集
 """
 import re
 import sys
@@ -25,74 +26,132 @@ ARCHIVE = Path('/Users/dongziyu/code/bedtimenews-archive-contents')
 INTEG = ARCHIVE / '.claude/worktrees/integ-cp'
 INTEG_BRANCH = 'origin/integration/proofread-all'
 REPO = Path(__file__).resolve().parent
-OUT = REPO / 'contents' / 'ShuiQianXiaoXi'
+OUT = REPO / 'contents'
 PRS_CACHE = REPO / '.localonly' / 'prs-all.json'
 UPSTREAM = 'bedtimenews/bedtimenews-archive-contents'
 
-SECTION = 'main'
-SRC_DIRS = ['1-100', '101-200', '201-300', '301-400', '401-500', '501-600',
-            '601-700', '801-900', '901-1000', '1001-1100',
-            'prequel', 'summerbreak', 'winterbreak2023']
-
-# 无期号文件 → misc/ 下的名字（含期号的番外 x.5 不在此表）
-MISC_MAP = {
-    'main/prequel/0.md': '0',
-    'main/prequel/l1.md': 'l1', 'main/prequel/l2.md': 'l2',
-    'main/prequel/l3.md': 'l3', 'main/prequel/l4.md': 'l4',
-    'main/prequel/l5.md': 'l5', 'main/prequel/l6.md': 'l6',
-    'main/summerbreak/1.md': 'summerbreak-1',
-    'main/summerbreak/2.md': 'summerbreak-2',
-    'main/winterbreak2023/1.md': 'winterbreak2023-1',
-    'main/winterbreak2023/2.md': 'winterbreak2023-2',
-    'main/winterbreak2023/3.md': 'winterbreak2023-3',
-    'main/winterbreak2023/4.md': 'winterbreak2023-4',
-    'main/winterbreak2023/5.md': 'winterbreak2023-5',
-    'main/winterbreak2023/6.md': 'winterbreak2023-6',
-    'main/winterbreak2023/essay.md': 'winterbreak2023-essay',
-    'main/winterbreak2023/speech2023.md': 'speech2023',
-    'main/1-100/speech2019.md': 'speech2019',
-    'main/501-600/thewordof2022.md': 'thewordof2022',
-    'main/601-700/thewordof2023.md': 'thewordof2023',
-    'main/901-1000/2025interview-1.md': '2025interview-1',
-    'main/901-1000/2025interview-2.md': '2025interview-2',
+# 栏目 → integration 源目录与扫描子目录（dirs=None 表示平铺扫描整个栏目目录）
+CONFIGS = {
+    'ShuiQianXiaoXi': {
+        'src': 'main', 'bsec': 'main',
+        'dirs': ['1-100', '101-200', '201-300', '301-400', '401-500', '501-600',
+                 '601-700', '801-900', '901-1000', '1001-1100',
+                 'prequel', 'summerbreak', 'winterbreak2023'],
+    },
+    'CanKaoXinXi': {
+        'src': 'reference', 'bsec': 'ref',
+        'dirs': ['1-100', '101-200', '201-300', '301-400', '401-500',
+                 '501-600', '601-700'],
+    },
+    'ChanJingPoBiJi': {'src': 'business', 'bsec': 'biz', 'dirs': None},
+    'GaoJian':        {'src': 'opinion', 'bsec': 'op', 'dirs': None},
+    'JiangDianHeiHua': {'src': 'commercial', 'bsec': 'comm', 'dirs': None},
 }
-# 有期号但文件名带后缀的番外（N-M.md → 期号 N.5）
-X5_RE = re.compile(r'^(\d+)-(\d+)\.md$')
+
+# 特殊文件表：(src, subdir|None, basename) → (去向 misc/ 的名字, PR 分支后缀或 None)
+SPECIAL = {
+    ('main', 'prequel', '0.md'):            ('0', None),
+    ('main', 'prequel', 'l1.md'):           ('l1', 'prequel-l1'),
+    ('main', 'prequel', 'l2.md'):           ('l2', 'prequel-l2'),
+    ('main', 'prequel', 'l3.md'):           ('l3', 'prequel-l3'),
+    ('main', 'prequel', 'l4.md'):           ('l4', 'prequel-l4'),
+    ('main', 'prequel', 'l5.md'):           ('l5', 'prequel-l5'),
+    ('main', 'prequel', 'l6.md'):           ('l6', 'prequel-l6'),
+    ('main', 'summerbreak', '1.md'):        ('summerbreak-1', 'summerbreak-1'),
+    ('main', 'summerbreak', '2.md'):        ('summerbreak-2', 'summerbreak-2'),
+    ('main', 'winterbreak2023', '1.md'):    ('winterbreak2023-1', 'winterbreak2023-1'),
+    ('main', 'winterbreak2023', '2.md'):    ('winterbreak2023-2', 'wb2023-2'),
+    ('main', 'winterbreak2023', '3.md'):    ('winterbreak2023-3', 'wb2023-3'),
+    ('main', 'winterbreak2023', '4.md'):    ('winterbreak2023-4', 'wb2023-4'),
+    ('main', 'winterbreak2023', '5.md'):    ('winterbreak2023-5', 'wb2023-5'),
+    ('main', 'winterbreak2023', '6.md'):    ('winterbreak2023-6', 'winterbreak2023-6'),
+    ('main', 'winterbreak2023', 'essay.md'): ('winterbreak2023-essay', 'winterbreak2023-essay'),
+    ('main', 'winterbreak2023', 'speech2023.md'): ('speech2023', 'speech2023'),
+    ('main', '1-100', 'speech2019.md'):     ('speech2019', 'speech2019'),
+    ('main', '501-600', 'thewordof2022.md'): ('thewordof2022', 'thewordof2022'),
+    ('main', '601-700', 'thewordof2023.md'): ('thewordof2023', 'thewordof2023'),
+    ('main', '901-1000', '2025interview-1.md'): ('2025interview-1', '2025interview-1'),
+    ('main', '901-1000', '2025interview-2.md'): ('2025interview-2', '2025interview-2'),
+    ('biz', None, 'yu7.md'):           ('yu7', 'biz-yu7'),
+    ('biz', None, '-1.md'):            ('biz-001', 'biz-neg1'),
+    ('biz', None, '-2.md'):            ('biz-002', 'biz-neg2'),
+}
 
 # ---------------------------------------------------------------- source side
 
+RE_TAB_HEAD = re.compile(r'^#{1,3}\s*(Tabs|B站|YouTube|西瓜视频|微博|播客)(\s*\{[^}]*\})?\s*$')
+
+def fm_end(lines):
+    """frontmatter 结束行号（容错双块 frontmatter，如 937 期）。"""
+    k = 0
+    if lines and lines[0].strip() == '---':
+        for i in range(1, len(lines)):
+            if lines[i].strip() == '---':
+                k = i + 1
+                break
+    while k < len(lines):
+        s = lines[k].strip()
+        if s == '---' or re.match(r'^[A-Za-z][\w-]*:(\s|$)', s):
+            k += 1
+            continue
+        break
+    return k
+
+
+def zone_start(lines):
+    """frontmatter 后，跳过空行/前置说明（blockquote、class 行），第一个候选行号。"""
+    k = fm_end(lines)
+    while k < len(lines):
+        s = lines[k].strip()
+        if not s or s.startswith('>') or s.startswith('{.is-'):
+            k += 1
+            continue
+        break
+    return k if k < len(lines) else None
+
+
 def parse_tabs_zone(raw):
-    """返回 (各 tab 的 [(label, notes, bvids, ytid)], 是否有 Tabs)。"""
+    """返回 (各 tab 的 (label, notes, bvids, ytid), 是否有嵌入区)。"""
     stripped = re.sub(r'<!--.*?-->', '', raw, flags=re.S)
-    if '# Tabs' not in stripped:
-        return [], False
     lines = stripped.split('\n')
-    i = next(i for i, l in enumerate(lines) if l.startswith('# Tabs'))
+    i = zone_start(lines)
+    if i is None or not RE_TAB_HEAD.match(lines[i].strip()):
+        return [], False
     tabs = []           # (label, [note lines])
     cur = None
-    for l in lines[i + 1:]:
+    for l in lines[i:]:
         s = l.strip()
-        if not s:
+        if not s or re.match(r'^#\s*$', s):
             continue
-        if s.startswith('## '):
-            cur = (s[3:].strip(), [])
+        if s.startswith('## ') or s.startswith('### '):
+            label = s.lstrip('#').strip()
+            if not label:
+                continue
+            cur = (label, [])
             tabs.append(cur)
             continue
         if cur is None:
             continue
-        if s.startswith(('<div', '<iframe', '</div', '{.is-')) or re.match(r'^#\s*$', s):
+        if s.startswith(('<div', '<iframe', '</div', '{.is-')):
             continue
         if s.startswith('>'):
             cur[1].append(s.lstrip('> ').strip())
             continue
         break  # 正文开始
     # 逐 tab 提取 iframe（在 stripped 文本上按 label 定位）
+    def _find(needle, frm):
+        try:
+            return stripped.index(needle, frm)
+        except ValueError:
+            return len(stripped)
+
     result = []
-    pos = stripped.index('# Tabs')
+    pos = 0
     for idx, (label, notes) in enumerate(tabs):
-        start = stripped.index(f'## {label}', pos)
+        start = min(_find(f'## {label}', pos), _find(f'### {label}', pos))
         if idx + 1 < len(tabs):
-            end = stripped.index(f'## {tabs[idx + 1][0]}', start)
+            nxt = tabs[idx + 1][0]
+            end = min(_find(f'## {nxt}', start), _find(f'### {nxt}', start))
         else:
             end = len(stripped)
         seg = stripped[start:end]
@@ -116,21 +175,24 @@ def clean_body(raw):
     raw = '\n'.join(lines[start:])
     raw = re.sub(r'<!--.*?-->', '', raw, flags=re.S)   # 先去注释（西瓜视频块等）
     # 去 Tabs 区（含其内说明性 blockquote）
+    lines = raw.split('\n')
+    k = fm_end(lines)
     zone, has_tabs = parse_tabs_zone(raw)
     if has_tabs:
-        lines = raw.split('\n')
-        i = next(i for i, l in enumerate(lines) if l.startswith('# Tabs'))
-        j = i + 1
+        j = zone_start(lines)
         while j < len(lines):
             s = lines[j].strip()
-            if not s or s.startswith(('## ', '<div', '<iframe', '</div', '>', '{.is-')) \
-                    or re.match(r'^#\s*$', s):
+            if not s or s.startswith(('## ', '### ', '<div', '<iframe', '</div', '>', '{.is-')) \
+                    or re.match(r'^#\s*$', s) or RE_TAB_HEAD.match(s):
                 j += 1
                 continue
             break
-        raw = '\n'.join(lines[:i] + lines[j:])
+        lines = lines[:k] + lines[j:]
+    else:
+        lines = lines[k:]
+    raw = '\n'.join(lines)
     # 正文清理
-    raw = re.sub(r'!\[[^\]]*\]\([^)]+\)', '', raw)                 # 图片
+    raw = re.sub(r'!\[(?:[^\]\\]|\\.)*\]\([^)]+\)', '', raw)        # 图片（容忍转义括号）
     raw = re.sub(r'<font[^>]*>|</font>', '', raw)                  # 字体标签
     raw = re.sub(r'\s*\{\.is-[a-z]+\}', '', raw)                   # wiki class
     raw = re.sub(r'\s*\{\.(tabset|links-list|tab)\}', '', raw)
@@ -140,12 +202,12 @@ def clean_body(raw):
     def iframe_url(m):
         src = m.group(1)
         bm = re.search(r'bvid=([A-Za-z0-9]+)', src)
-        if bm:
+        if bm and bm.group(1) != 'BVID':
             return f'https://www.bilibili.com/video/{bm.group(1)}'
         ym = re.search(r'youtube[^/]*\.com/embed/([A-Za-z0-9_-]+)', src)
-        if ym:
+        if ym and ym.group(1) != 'YouTubeVID':
             return f'https://www.youtube.com/watch?v={ym.group(1)}'
-        return src if src.startswith('http') else ''
+        return ''  # 占位符与第三方嵌入（西瓜/微博等）不留 URL
     raw = re.sub(r'<iframe[^>]*src="([^"]*)"[^>]*>\s*(?:</iframe>)?', lambda m: iframe_url(m), raw)
     raw = re.sub(r'^<div[^>]*>.*</div>\s*$', '', raw, flags=re.M)
     raw = re.sub(r'^</?div[^>]*>\s*$', '', raw, flags=re.M)
@@ -156,6 +218,8 @@ def clean_body(raw):
     raw = re.sub(r'\[((?:https?|//)[^\]]*)\]\(([^)\s]+)\)',
                  lambda m: m.group(2) if norm(m.group(1)) == norm(m.group(2)) else m.group(0), raw)
     raw = re.sub(r'^#\s*$', '', raw, flags=re.M)                   # 空标题
+    # 全局清理残留的嵌入区标题行（如 995 期正文中段的第二视频 Tabs 块）
+    raw = re.sub(r'^#{1,3}\s*(Tabs|B站|YouTube|西瓜视频|微博|播客)(\s*\{[^}]*\})?\s*\n', '', raw, flags=re.M)
     raw = re.sub(r'\n{3,}', '\n\n', raw)
     return raw.strip()
 
@@ -172,7 +236,9 @@ RE_FACTUAL = re.compile(
 RE_BOILER = re.compile(
     r'iframe|占位符|管理员补充|YouTubeVID|BVID|留待|维持原编号|敬请谅解|'
     r'本校对仅|校对规则|敏感.*(未|免).*(检索|核对)|按惯例.*(检索|核对)')
-RE_BOILER_TAIL = re.compile(r'B站/?YouTube iframe|YouTube嵌入地址|嵌入地址中的|本页视频区|留待管理员补充|占位符未?动')
+RE_BOILER_TAIL = re.compile(
+    r'B站/?YouTube iframe|YouTube嵌入地址|嵌入地址中的|本页视频区|留待管理员补充|占位符未?动')
+RE_NOCHANGE = re.compile(r'无[^。；]{0,14}需?订正|无需?修正|无日期.{0,8}错误|未发现.{0,8}(错误|订正)')
 RE_PENDING_HEAD = re.compile(r'待核实|待核对|存疑|待确认|遗留')
 RE_FACT_HEAD = re.compile(r'事实核对|事实订正|系统性|事实性|来源|核实|核对说明|核对（|已核实|订正|勘误|补充')
 RE_SKIP_HEAD = re.compile(
@@ -181,6 +247,7 @@ RE_SKIP_HEAD = re.compile(
 RE_PROCESS_HEAD = re.compile(r'音频复核|二次复核|二次校对|第二轮|复核追加|复核仍|全库音频')
 CONTAINER_HEAD2 = re.compile(r'修改说明|修改内容|修改概要')
 CONTAINER_HEAD = re.compile(r'修改内容|修改说明|修改概要')
+
 
 def split_sections(body):
     """按 ##/### 切分，返回 [(level, heading, content)]，body 前导记为 (0,'',…)。"""
@@ -284,8 +351,6 @@ def classify_pr_body(body, app):
         # 其余标题（如“审计”）不进附录
 
 
-RE_NOCHANGE = re.compile(r'无[^。；]{0,14}需?订正|无需?修正|无日期.{0,8}错误|未发现.{0,8}(错误|订正)')
-
 def classify_bullet(b, app):
     is_change = bool(RE_CHANGE.search(b))
     is_conf = bool(RE_CONF.search(b))
@@ -312,7 +377,7 @@ def classify_bullet(b, app):
             # 带来源但属同音/转写类：修复已在正文，不进附录（用户规则）
             pass
     else:  # confirmation
-        if has_url or re.search(r'核实|与.*一致|互证|有据', b):
+        if has_url or re.search(r'核实|与.*一致|互证|有据', meta):
             app.add_check(b)
 
 
@@ -356,6 +421,24 @@ def render_appendix(app):
 
 # ---------------------------------------------------------------- PR mapping
 
+SEC_PFX = (('ref-', 'ref'), ('biz-', 'biz'), ('comm-', 'comm'), ('op-', 'op'))
+
+
+def branch_key(x):
+    """分支后缀 → (栏目src, key)。key 为 int 期号或字符串（N-M/neg1/yu7/prequel-l1…）。"""
+    if x.startswith('transcribe-'):
+        x = x[len('transcribe-'):]
+    sec = 'main'
+    for pfx, s in SEC_PFX:
+        if x.startswith(pfx):
+            sec, x = s, x[len(pfx):]
+            break
+    dm = re.match(r'^(\d+)([bc]|-retry)?$', x)
+    if dm:
+        return (sec, int(dm.group(1)))
+    return (sec, x)
+
+
 def load_prs():
     if not PRS_CACHE.exists():
         print('fetching PRs …')
@@ -369,72 +452,45 @@ def load_prs():
 
 
 def pr_map():
-    """episode key → 按 PR 号排序的 body 列表。key: int 期号 / '13-2' / 分支后缀。"""
+    """(src栏目, key) → 按 PR 号排序的 body 列表。"""
     prs = load_prs()
     m = {}
     for p in prs:
         b = p['headRefName']
-        if not b.startswith('proofread/') or b.startswith('proofread/ref'):
+        if not b.startswith('proofread/') or b.startswith('proofread/ref-') and False:
             continue
         x = b.split('/', 1)[1]
-        key = None
-        mm = re.match(r'^(?:transcribe-)?(\d+)([bc]|-retry)?$', x)
-        if mm:
-            key = int(mm.group(1))
-        elif re.match(r'^\d+-\d+$', x):
-            key = x
-        else:
-            key = x  # prequel-l1 / speech2019 / wb2023-2 / …
+        if x.startswith('ref') and not x.startswith('ref-'):
+            continue  # 旧 ref 整理类分支，无对应栏目文件
+        key = branch_key(x)
         m.setdefault(key, []).append((p['number'], p['body'] or ''))
     for v in m.values():
         v.sort()
     return m
 
-# ---------------------------------------------------------------- build
+# ---------------------------------------------------------------- routing
 
-def target_for(src_rel):
-    """返回 (folder, filename)，misc 文件夹直接给 (None, name)。"""
-    if src_rel in MISC_MAP:
-        return ('misc', MISC_MAP[src_rel])
-    base = src_rel.split('/')[-1]
-    m = X5_RE.match(base)
-    if m:
-        n = int(m.group(1))
-        folder = f'{((n - 1) // 100) * 100 + 1:04d}-{((n - 1) // 100) * 100 + 100:04d}'
-        return (folder, f'{n:04d}.5')
+def num_folder(n):
+    lo = max(((n - 1) // 100) * 100 + 1, 1)
+    return f'{lo:04d}-{lo + 99:04d}'
+
+
+def resolve(cfg_name, cfg, subdir, base, title):
+    """→ (folder, filename, pr_key)。pr_key 为 branch_key 元组或 None。"""
+    bsec = cfg['bsec']
+    sp = SPECIAL.get((bsec, subdir, base))
+    if sp:
+        return ('misc', sp[0], branch_key(sp[1]) if sp[1] else None)
     m = re.match(r'^(\d+)\.md$', base)
     if m:
         n = int(m.group(1))
-        folder = f'{((n - 1) // 100) * 100 + 1:04d}-{((n - 1) // 100) * 100 + 100:04d}'
-        return (folder, f'{n:04d}')
-    return None
-
-
-def pr_key_for(src_rel):
-    if src_rel in MISC_MAP:
-        name = MISC_MAP[src_rel]
-    base = src_rel.split('/')[-1]
-    if src_rel in MISC_MAP:
-        name = MISC_MAP[src_rel]
-        alias = {'l1': 'prequel-l1', 'l2': 'prequel-l2', 'l3': 'prequel-l3',
-                 'l4': 'prequel-l4', 'l5': 'prequel-l5', 'l6': 'prequel-l6',
-                 'summerbreak-1': 'summerbreak-1', 'summerbreak-2': 'summerbreak-2',
-                 'winterbreak2023-1': 'winterbreak2023-1',
-                 'winterbreak2023-2': 'wb2023-2', 'winterbreak2023-3': 'wb2023-3',
-                 'winterbreak2023-4': 'wb2023-4', 'winterbreak2023-5': 'wb2023-5',
-                 'winterbreak2023-6': 'winterbreak2023-6',
-                 'winterbreak2023-essay': 'winterbreak2023-essay',
-                 'speech2023': 'speech2023', 'speech2019': 'speech2019',
-                 'thewordof2022': 'thewordof2022', 'thewordof2023': 'thewordof2023',
-                 '2025interview-1': '2025interview-1',
-                 '2025interview-2': '2025interview-2', '0': None}
-        return alias.get(name, name)
-    m = X5_RE.match(base)
+        return (num_folder(n), f'{n:04d}', (bsec, n))
+    m = re.match(r'^(\d+)-(\d+)\.md$', base)
     if m:
-        return f'{m.group(1)}-{m.group(2)}'
-    m = re.match(r'^(\d+)\.md$', base)
-    if m:
-        return int(m.group(1))
+        n, sub = int(m.group(1)), m.group(2)
+        # 标题里有 N.5 → 番外命名；否则保留 N-M（重号期）
+        name = f'{n:04d}.5' if re.search(rf'{n}\.5', title or '') else f'{n:04d}-{sub}'
+        return (num_folder(n), name, (bsec, f'{n}-{sub}'))
     return None
 
 
@@ -467,9 +523,9 @@ def video_links(tabs):
     return '\n'.join(out)
 
 
-def build_one(src_rel, raw, bodies):
+def build_one(raw, bodies):
     title = re.search(r'^title:\s*(.+)', raw, re.M)
-    title = title.group(1).strip() if title else src_rel
+    title = title.group(1).strip() if title else ''
     tabs, _ = parse_tabs_zone(raw)
     vlinks = video_links(tabs)
     body = clean_body(raw)
@@ -487,12 +543,10 @@ def build_one(src_rel, raw, bodies):
                 cand_n = norm(cand)
                 if len(cand_n) < 2:
                     continue
-                # 在去空白文本上定位，再映射回原位置
                 body_n = norm(body)
                 pos = body_n.find(cand_n)
                 if pos >= 0:
-                    # 找原文中该片段结束位置
-                    acc, ci = 0, 0
+                    acc = 0
                     for ci, ch in enumerate(body):
                         if not ch.isspace():
                             acc += 1
@@ -512,63 +566,76 @@ def build_one(src_rel, raw, bodies):
     if not app.empty():
         out.append('')
         out.append(render_appendix(app))
-        # 把脚注编号与 corr 对齐（render 时按同一顺序编号）
     text = '\n'.join(out).rstrip() + '\n'
     return text, app, anchored
+
+# ---------------------------------------------------------------- build
+
+def iter_source_files(cfg):
+    src, dirs = cfg['src'], cfg['dirs']
+    base = INTEG / src
+    if dirs is None:
+        for f in sorted(base.glob('*.md')):
+            yield (None, f)
+    else:
+        for d in dirs:
+            for f in sorted((base / d).glob('*.md')):
+                yield (d, f)
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--force', action='store_true')
     ap.add_argument('--only', default=None)
+    ap.add_argument('--section', default=None, help='ShuiQianXiaoXi/CanKaoXinXi/…，默认全部')
     ap.add_argument('--refresh-prs', action='store_true')
     args = ap.parse_args()
 
     if args.refresh_prs and PRS_CACHE.exists():
         PRS_CACHE.unlink()
 
-    # integration worktree 就位检查
     r = subprocess.run(['git', 'rev-parse', INTEG_BRANCH],
                        cwd=INTEG, capture_output=True, text=True)
     if r.returncode != 0:
         sys.exit(f'integration worktree 不可用: {r.stderr}')
 
     pmap = pr_map()
-    report_missing_pr, report_no_app = [], []
+    configs = {k: v for k, v in CONFIGS.items()
+               if args.section is None or k == args.section}
+    missing_pr, no_app, unrouted = [], [], []
     count = 0
-    for d in SRC_DIRS:
-        for f in sorted((INTEG / SECTION / d).glob('*.md')):
-            src_rel = f'{SECTION}/{d}/{f.name}'
-            tgt = target_for(src_rel)
+    for cfg_name, cfg in configs.items():
+        out_base = OUT / cfg_name
+        for subdir, f in iter_source_files(cfg):
+            raw = f.read_text()
+            tmatch = re.search(r'^title:\s*(.+)', raw, re.M)
+            title = tmatch.group(1).strip() if tmatch else ''
+            tgt = resolve(cfg_name, cfg, subdir, f.name, title)
             if not tgt:
+                unrouted.append(f'{cfg["src"]}/{subdir or ""}/{f.name}')
                 continue
-            if args.only and args.only not in f.name and args.only not in src_rel:
+            folder, name, key = tgt
+            if args.only and args.only not in f.name and args.only not in name:
                 continue
-            folder, name = tgt
-            out_dir = OUT / folder
-            out_path = out_dir / f'{name}.md'
+            out_path = out_base / folder / f'{name}.md'
             if out_path.exists() and not args.force:
                 continue
-            raw = f.read_text()
-            key = pr_key_for(src_rel)
             bodies = pmap.get(key, []) if key is not None else []
             if key is not None and not bodies:
-                report_missing_pr.append(src_rel)
-            text, app, anchored = build_one(src_rel, raw, bodies)
-            out_dir.mkdir(parents=True, exist_ok=True)
+                missing_pr.append(f'{cfg_name}/{folder}/{name}')
+            text, app, anchored = build_one(raw, bodies)
+            out_path.parent.mkdir(parents=True, exist_ok=True)
             out_path.write_text(text)
             if app.empty():
-                report_no_app.append(src_rel)
+                no_app.append(f'{cfg_name}/{folder}/{name}')
             count += 1
-            print(f'  ✓ {folder}/{name}.md  '
+            print(f'  ✓ {cfg_name}/{folder}/{name}.md  '
                   f'(核对{len(app.checks)} 订正{len(app.corr)} 待核{len(app.pending)}'
                   f' 锚定{sum(anchored)}/{len(anchored)})')
     print(f'\nwritten: {count}')
-    if report_missing_pr:
-        print('无对应 PR:', *report_missing_pr, sep='\n  ')
-    if report_no_app:
-        print(f'无附录内容（{len(report_no_app)} 篇）: 首例',
-              report_no_app[:5])
+    for label, lst in (('无对应PR', missing_pr), ('无附录内容', no_app), ('未路由', unrouted)):
+        if lst:
+            print(f'{label}（{len(lst)}）:', *lst[:8], sep='\n  ', end='\n' if len(lst) <= 8 else '\n  …\n')
 
 
 if __name__ == '__main__':
