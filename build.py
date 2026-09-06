@@ -539,8 +539,37 @@ def collect_refs_and_strip(body, refs):
     return body.strip(), refnotes
 
 
+def _is_protect_line(l):
+    return (not l.strip() or l.strip().startswith(('#', '>', '- ', '- ', 'http', '《')
+            ) or re.match(r'^-{3,}$', l.strip()))
+
+
+def _reflow_block(b, cap=380):
+    """字幕式块：连续短行合并为段落。句子末尾（。！？；）处优先断段。"""
+    lines = [l.strip() for l in b.split('\n') if l.strip()]
+    if len(lines) < 2:
+        return b
+    out, buf = [], ''
+    for l in lines:
+        if _is_protect_line(l):
+            if buf:
+                out.append(buf)
+                buf = ''
+            out.append(l)
+            continue
+        if buf and ((len(buf) + len(l) > cap and buf[-1] in '。！？；；！')
+                    or len(buf) > cap + 120):
+            out.append(buf)
+            buf = l
+        else:
+            buf += l
+    if buf:
+        out.append(buf)
+    return '\n\n'.join(out)
+
+
 def merge_short_paragraphs(body, short=80, cap=380):
-    """把连续的单句小段合并成正常段落（≤cap 字；问句不打断处保留问答边界）。"""
+    """两级合并：①空行分隔的单句小段合并 ②字幕式块（连续短行无空行）行间合并。"""
     blocks = re.split(r'\n\n+', body)
     out, run = [], []
     def flush():
@@ -567,6 +596,12 @@ def merge_short_paragraphs(body, short=80, cap=380):
             run.append(b)
             continue
         flush()
+        # 字幕式块：≥4 行且多数行 <80 字 → 行间合并
+        n_short = sum(1 for l in lines if len(l.strip()) < 80)
+        if len(lines) >= 4 and n_short >= len(lines) * 0.7 \
+                and not b.startswith(('#', '>')):
+            out.append(_reflow_block(b, cap))
+            continue
         out.append(b)
     flush()
     return '\n\n'.join(out)
