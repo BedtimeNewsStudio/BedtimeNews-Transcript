@@ -814,6 +814,8 @@ def build_one(raw, bodies, commit_msgs=(), linkstatus=None, epnum=None, cfg_name
             body = '\n\n'.join(blocks)
 
     plan = TITLE_PLANS.get((cfg_name, folder, name)) if TITLE_PLANS else None
+    if p3 and p3.get('titles'):
+        plan = (plan or []) + p3['titles']
     if plan and not re.search(r'^## ', body, re.M):  # 已有小节的不再加
         apply_titles(plan)
 
