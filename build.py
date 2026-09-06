@@ -596,40 +596,56 @@ def _reflow_block(b, cap=380):
     return '\n\n'.join(out)
 
 
-def merge_short_paragraphs(body, short=80, cap=380):
-    """两级合并：①空行分隔的单句小段合并 ②字幕式块（连续短行无空行）行间合并。"""
-    blocks = re.split(r'\n\n+', body)
-    out, run = [], []
-    def flush():
-        if run:
-            merged = ''
-            for p in run:
-                merged += p if not merged else p
-            out.append(merged)
-            run.clear()
-    for blk in blocks:
-        b = blk.strip()
-        if not b:
-            continue
-        lines = b.split('\n')
-        is_simple = (len(lines) == 1 and len(b) <= short
-                     and not b.startswith(('#', '>', '-', '- ', 'http'))
-                     and not b.endswith('？') and not b.endswith('：')
-                     and not re.match(r'^-{3,}$', b))
-        if is_simple:
-            if sum(len(p) for p in run) + len(b) <= cap:
-                run.append(b)
+def merge_short_paragraphs(body, cap=380):
+    """散文组重新分段：连续的纯文本块（含单句成段与字幕式碎行）合并后
+    按句界切分为 ≤cap 字的段落；标题/引用/列表/URL 行与问句尾块保留边界。"""
+    def is_protect(l):
+        return (not l.strip() or l.strip().startswith(('#', '>', '- ', 'http'))
+                or re.match(r'^-{3,}$', l.strip()))
+
+    def para_split(text):
+        out, buf = [], ''
+        for sent in re.split(r'(?<=[。！？])', text):
+            s2 = sent.strip()
+            if not s2:
                 continue
-            flush()
-            run.append(b)
-            continue
-        flush()
-        # 字幕式块：≥4 行且多数行 <80 字 → 行间合并
-        if len(lines) >= 3 and not b.startswith(('#', '>')):
-            out.append(_reflow_block(b, cap))
-            continue
-        out.append(b)
-    flush()
+            if buf and len(buf) + len(s2) > cap:
+                out.append(buf)
+                buf = s2
+            else:
+                buf += s2
+        if buf:
+            out.append(buf)
+        return out
+
+    blocks = re.split(r'\n\n+', body)
+    out, group = [], []
+
+    def flush_group():
+        nonlocal group
+        if not group:
+            return
+        joined = ''.join(group)
+        for p in para_split(joined):
+            out.append(p)
+        group.clear()
+
+    for blk in blocks:
+        lines = [l for l in blk.split('\n') if l.strip()]
+        if len(lines) == 1:
+            l = lines[0].strip() if lines else ''
+            if (not is_protect(l) and not l.endswith('？')
+                    and not re.match(r'^-{3,}$', l)):
+                group.append(l)
+                continue
+        flush_group()
+        if len(lines) >= 3 and all(not is_protect(l) for l in lines) \
+                and not blk.startswith(('#', '>')):
+            for p in para_split(''.join(l.strip() for l in lines)):
+                out.append(p)
+        else:
+            out.append(blk)
+    flush_group()
     return '\n\n'.join(out)
 
 
