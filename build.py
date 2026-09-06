@@ -446,7 +446,9 @@ def render_appendix(app, refs=None, p3_resolved=()):
         out += ['### 待核对', '']
         out += [f'- {_strip_proc(retitle_bullets(p))}' for p in app.pending]
         out.append('')
-    return '\n'.join(out)
+    txt = '\n'.join(out)
+    txt = re.sub(r'\[([^\[]+)\]\(\[([^\]]+)\]\(([^)]+)\)\)', r'[\2](\3)', txt)
+    return txt
 
 
 # ------------------------------------------------- 正文转换（链接/分段/标题）
