@@ -448,6 +448,7 @@ def render_appendix(app, refs=None, p3_resolved=()):
         out.append('')
     txt = '\n'.join(out)
     txt = re.sub(r'\[([^\[]+)\]\(\[([^\]]+)\]\(([^)]+)\)\)', r'[\2](\3)', txt)
+    txt = re.sub(r'\[([^\[]+)\]\(\[([^\]]+)\]\(([^)]+)\)\)', r'[\2](\3)', txt)
     return txt
 
 
