@@ -400,7 +400,7 @@ def extract_old_new(b):
     return None, None
 
 
-def render_appendix(app, refs=None):
+def render_appendix(app, refs=None, p3_resolved=()):
     out = []
     out += ['## 附录', '']
     if app.checks:
@@ -422,6 +422,10 @@ def render_appendix(app, refs=None):
         for idx, (b, _old, _new) in enumerate(app.corr, 1):
             text = retitle_bullets(re.sub(r'\s+', ' ', b).strip())
             out.append(f'[^{idx}]: {text}')
+        out.append('')
+    if p3_resolved:
+        out += ['### 已核对', '']
+        out += [retitle_bullets(r) for r in p3_resolved]
         out.append('')
     if app.pending:
         out += ['### 待核对', '']
@@ -751,6 +755,23 @@ def build_one(raw, bodies, commit_msgs=(), linkstatus=None, epnum=None, cfg_name
     body = re.sub(r'^.*?转发动态[：:].*\n?', '', body, flags=re.M)
     body = re.sub(r'^.*//@[^：:]{1,30}[：:].*\n?', '', body, flags=re.M)
 
+    # P3 联网核对结果：resolved 条目 → 已核对小节，并从待核对中移除对应项
+    p3 = P3_RESULTS.get((cfg_name, folder, name)) if P3_RESULTS else None
+    p3_resolved = []
+    if p3:
+        for r in p3.get('resolved', []):
+            item = re.sub(r'\s+', '', r.get('item', ''))
+            concl = re.sub(r'\s+', ' ', r.get('conclusion', '')).strip()
+            src = r.get('source', '')
+            src_part = f'（来源 [link_title]({src})）' if src else ''
+            src_part = src_part.replace('link_title', link_title(src))
+            p3_resolved.append(f'- {r.get("item", "").strip()} → **已核实**：{concl}{src_part}')
+        def is_resolved(b):
+            nb = re.sub(r'^[-*]\s*', '', b.strip())
+            nb = re.sub(r'\s+', '', nb)
+            return any(nb.startswith(norm(r.get('item', ''))[:20]) for r in p3.get('resolved', []))
+        app.pending = [p for p in app.pending if not is_resolved(p)]
+
     refs = {}
     body, refnotes = collect_refs_and_strip(body, refs)  # 内链移除；行中URL→脚注；独立URL→本文链接
 
@@ -828,9 +849,9 @@ def build_one(raw, bodies, commit_msgs=(), linkstatus=None, epnum=None, cfg_name
         out += ['## 摘要', '', summary, '']
     out += ['## 正文', '']
     out.append(re.sub(r'^(?:-{3,}\n+)+', '', body))
-    if not app.empty() or refs or refnotes:
+    if not app.empty() or refs or refnotes or p3_resolved:
         out.append('')
-        out.append(render_appendix(app, refs))
+        out.append(render_appendix(app, refs, p3_resolved))
     if refnotes:
         out.append('')
         out += refnotes
@@ -884,6 +905,14 @@ def main():
     globals()['TITLE_PLANS'] = tp
     us_path = REPO / '.localonly' / 'urlstatus.json'
     globals()['USTAT'] = json.loads(us_path.read_text()) if us_path.exists() else {}
+    p3_dir = REPO / '.localonly' / 'p3-results'
+    p3r = {}
+    if p3_dir.exists():
+        for p in p3_dir.rglob('*.json'):
+            parts = p.relative_to(p3_dir).with_suffix('').parts
+            if len(parts) == 3:
+                p3r[tuple(parts)] = json.loads(p.read_text())
+    globals()['P3_RESULTS'] = p3r
     configs = {k: v for k, v in CONFIGS.items()
                if args.section is None or k == args.section}
     missing_pr, no_app, unrouted = [], [], []
@@ -921,9 +950,51 @@ def main():
                   f'(核对{len(app.checks)} 订正{len(app.corr)} 待核{len(app.pending)}'
                   f' 锚定{sum(anchored)}/{len(anchored)})')
     print(f'\nwritten: {count}')
+    build_index()
     for label, lst in (('无对应PR', missing_pr), ('无附录内容', no_app), ('未路由', unrouted)):
         if lst:
             print(f'{label}（{len(lst)}）:', *lst[:8], sep='\n  ', end='\n' if len(lst) <= 8 else '\n  …\n')
+
+
+
+
+def build_index():
+    """生成每栏目 INDEX.md（分级：栏目 → 百期段 → 期）与根目录 INDEX.md。"""
+    root = OUT
+    section_links = []
+    for cfg_name, cfg in CONFIGS.items():
+        sec_dir = root / cfg_name
+        if not sec_dir.exists():
+            continue
+        entries = []
+        for f in sorted(sec_dir.rglob('*.md')):
+            if f.name == 'INDEX.md':
+                continue
+            t = f.read_text()
+            tm = re.search(r'^# (.+)', t, re.M)
+            title = tm.group(1).strip() if tm else f.stem
+            rel = f.relative_to(sec_dir)
+            entries.append((str(rel), title))
+        entries.sort()
+        # 分级：按文件夹
+        by_folder = {}
+        for rel, title in entries:
+            folder = rel.split('/')[0]
+            by_folder.setdefault(folder, []).append((rel, title))
+        out = [f'# {cfg_name} 节目索引', '', f'共 {len(entries)} 篇。', '']
+        for folder in sorted(by_folder):
+            out += [f'## {folder}', '']
+            for rel, title in by_folder[folder]:
+                out.append(f'- [{title}]({rel})')
+            out.append('')
+        (sec_dir / 'INDEX.md').write_text('\n'.join(out) + '\n')
+        section_links.append((cfg_name, len(entries)))
+    out = ['# bedtimenews-md 节目总索引', '', '基于多步校对的干净 Markdown 文本。', '']
+    for cfg_name, n in section_links:
+        out.append(f'- [{cfg_name}]({cfg_name}/INDEX.md)（{n} 篇）')
+    (root / 'INDEX.md').write_text('\n'.join(out) + '\n')
+    print(f'index: {sum(n for _, n in section_links)} 篇已编目')
+
 
 
 if __name__ == '__main__':
