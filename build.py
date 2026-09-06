@@ -722,7 +722,8 @@ def video_links(tabs, linkstatus=None, epnum=None):
             if re.search(r'尚未发布', note_text):
                 notes.append('YouTube 官方频道尚未发布本集。')
     if epnum is not None and not had_yt:
-        pick = (linkstatus or {}).get('discover', {}).get(epnum)
+        disc = (linkstatus or {}).get('discover', {})
+        pick = disc.get(epnum) or disc.get(str(epnum))
         if pick:
             tag = '' if pick.get('official') else '（非官方补档）'
             lines.append(f'- [YouTube{tag}](https://www.youtube.com/watch?v={pick["ytid"]})')
