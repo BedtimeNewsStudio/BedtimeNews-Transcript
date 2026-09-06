@@ -3,7 +3,7 @@
 ## 视频
 
 - [Bilibili](https://www.bilibili.com/video/BV1eJ411k7vN)
-- [YouTube（非官方补档）](https://www.youtube.com/watch?v=8fMSDnNpr4s)
+- [YouTube](https://www.youtube.com/watch?v=8fMSDnNpr4s)
 
 ## 正文
 

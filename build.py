@@ -903,8 +903,11 @@ def video_links(tabs, linkstatus=None, epnum=None):
                     lines.append(f'- [YouTube（已失效）](https://www.youtube.com/watch?v={y})')
                     continue
                 had_yt = True
-                tag = '（非官方补档）' if re.search(r'补档|其它用户上传|其他用户上传', note_text) \
-                    or (st.get('author') and not st.get('official')) else ''
+                # 有已校验作者时以作者为准（观视频工作室等早期官方渠道，上游"补档"注记已过时）
+                if st.get('author'):
+                    tag = '' if st.get('official') else '（非官方补档）'
+                else:
+                    tag = '（非官方补档）' if re.search(r'补档|其它用户上传|其他用户上传', note_text) else ''
                 lines.append(f'- [YouTube{tag}](https://www.youtube.com/watch?v={y})')
             if re.search(r'尚未发布', note_text):
                 notes.append('YouTube 官方频道尚未发布本集。')
