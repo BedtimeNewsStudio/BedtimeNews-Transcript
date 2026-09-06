@@ -48,9 +48,9 @@ YU7上市一个周，汽车圈已经准备好迎接小米的冲击了。
 
 ### 信息来源
 
-- 小米汽车App显示YU7交付周期：标准版58-61周、Pro版51-54周、MAX版39-42周：中金在线转引 [jnzstatic.cs.com.cn](https://jnzstatic.cs.com.cn/zzb/htmlInfo/9dfb3ad8233ba24d652815a2c9dc4b77.html) 、21财经 [21世纪经济报道](https://www.21jingji.com/article/20250701/herald/587a32e2c9c9d56e9b44934b21019f92.html)
-- 2023年《北京市新能源汽车高质量发展实施方案（2023-2025年）》提出2025年北京新能源汽车产量超30万辆：人民网北京频道 [人民网](http://bj.people.com.cn/n2/2023/0925/c14540-40583079.html)
-- 蔚来、极氪等品牌针对小米YU7准车主推出转定补贴/定金报销：科创板日报 [cls.cn](https://www.cls.cn/detail/2074622)
+- 小米汽车App显示YU7交付周期：标准版58-61周、Pro版51-54周、MAX版39-42周：中金在线转引 [部分消费者质疑小米YU7“偷改配置”，客服称系“配置表出现文案错误”](https://jnzstatic.cs.com.cn/zzb/htmlInfo/9dfb3ad8233ba24d652815a2c9dc4b77.html) 、21财经 [小米YU7提车最久等超1年，雷军直面产能挑战？](https://www.21jingji.com/article/20250701/herald/587a32e2c9c9d56e9b44934b21019f92.html)
+- 2023年《北京市新能源汽车高质量发展实施方案（2023-2025年）》提出2025年北京新能源汽车产量超30万辆：人民网北京频道 [2025年北京新能源汽车产量将超30万辆](http://bj.people.com.cn/n2/2023/0925/c14540-40583079.html)
+- 蔚来、极氪等品牌针对小米YU7准车主推出转定补贴/定金报销：科创板日报 [竞品抢单补贴，雷军直播回应“大可不必”！实探门店：YU7交付周期超一年](https://www.cls.cn/detail/2074622)
 
 ### 待核对
 

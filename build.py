@@ -450,6 +450,7 @@ DOMAIN_TITLES = {
     'workercn.cn': '工人日报', 'chinanews.com': '中国新闻网', 'ce.cn': '中国经济网',
 }
 TITLE_PLANS = None
+USTAT = None  # urlstatus 由 main() 载入
 BEDTIME_RE = re.compile(r'https?://[^\s)」』】]*(?:bedtime\.news|archive\.bedtime\.news)[^\s)」』】]*')
 WIKI_LINK_RE = re.compile(r'\[([^\]]+)\]\((?:/[^)]*|[^)]*\.md|https?://[^)]*bedtime\.news[^)]*)\)')
 EXT_LINK_RE = re.compile(r'\[([^\]]+)\]\((https?://[^)\s]+)\)')
@@ -458,6 +459,12 @@ HEAD_NUM_RE = re.compile(r'^(#{2,3})\s*(?:\d{1,3}\s*[.、:：]\s*|[一二三四�
 
 
 def link_title(url, anchor=''):
+    if not anchor:
+        st = USTAT.get(url) if USTAT else None
+        if st and st.get('title'):
+            t = re.sub(r'\s*[|\-–].*$', '', st['title']).strip()
+            if t and not t.lower().startswith(('http', 'www.')):
+                return t[:40]
     if anchor:
         a = anchor.strip()
         if a and not a.lower().startswith(('http', 'www.')):
@@ -468,6 +475,17 @@ def link_title(url, anchor=''):
         if dom == k or dom.endswith('.' + k) or dom.endswith(k):
             return v
     return dom[:30]
+
+
+def render_link(url, anchor=''):
+    """按 urlstatus 渲染：失效保留并标注（已失效），存活用页面标题。"""
+    url = url.rstrip('.,;、')
+    st = USTAT.get(url) if USTAT else None
+    if st and st.get('status') == 'dead':
+        m = re.match(r'https?://([^/]+)', url)
+        dom = m.group(1).removeprefix('www.') if m else url[:30]
+        return f'[{dom}（已失效）]({url})'
+    return f'[{link_title(url, anchor)}]({url})'
 
 
 def collect_refs_and_strip(body, refs):
@@ -484,8 +502,7 @@ def collect_refs_and_strip(body, refs):
     def make_note(anchor, url):
         counter[0] += 1
         label = f'ref{counter[0]}'
-        title = link_title(url, anchor)
-        refnotes.append(f'[^{label}]: [{title}]({url})')
+        refnotes.append(f'[^{label}]: {render_link(url, anchor)}')
         return f'[^{label}]'
 
     out_lines = []
@@ -500,7 +517,7 @@ def collect_refs_and_strip(body, refs):
                     and re.search(r'[。！？：；]', out_lines[j]):
                 out_lines[j] = out_lines[j].rstrip() + make_note('', stripped)
                 continue
-            refs[norm(stripped)] = (link_title(stripped), stripped)
+            refs[norm(stripped)] = (render_link(stripped), stripped)
             continue
         # 行中 markdown 外链 [text](url) → 脚注
         def ext_sub(m):
@@ -681,6 +698,7 @@ def video_links(tabs, linkstatus=None, epnum=None):
                     st = (linkstatus or {}).get('bili', {}).get(bv, {}).get('status')
                     if st == 'dead':
                         notes.append('B站视频已失效。')
+                        lines.append(f'- [Bilibili（已失效）](https://www.bilibili.com/video/{bv})')
                         continue
                     lines.append(f'- [Bilibili{tag}](https://www.bilibili.com/video/{bv})')
             if re.search(r'已被删除|未找到原视频', note_text):
@@ -691,6 +709,7 @@ def video_links(tabs, linkstatus=None, epnum=None):
                     continue
                 st = (linkstatus or {}).get('yt', {}).get(y, {})
                 if st.get('status') == 'dead':
+                    lines.append(f'- [YouTube（已失效）](https://www.youtube.com/watch?v={y})')
                     continue
                 had_yt = True
                 tag = '（非官方补档）' if re.search(r'补档|其它用户上传|其他用户上传', note_text) \
@@ -863,6 +882,8 @@ def main():
             parts = p.relative_to(tp_dir).with_suffix('').parts
             tp[tuple(parts)] = json.loads(p.read_text())
     globals()['TITLE_PLANS'] = tp
+    us_path = REPO / '.localonly' / 'urlstatus.json'
+    globals()['USTAT'] = json.loads(us_path.read_text()) if us_path.exists() else {}
     configs = {k: v for k, v in CONFIGS.items()
                if args.section is None or k == args.section}
     missing_pr, no_app, unrouted = [], [], []

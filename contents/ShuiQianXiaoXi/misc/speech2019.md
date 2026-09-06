@@ -3,7 +3,7 @@
 ## 视频
 
 - [Bilibili](https://www.bilibili.com/video/BV1eJ411k7vN)
-- [YouTube](https://www.youtube.com/watch?v=8fMSDnNpr4s)
+- [YouTube（非官方补档）](https://www.youtube.com/watch?v=8fMSDnNpr4s)
 
 ## 正文
 
@@ -222,9 +222,9 @@
 - 「2011年，中国超过美国，成为世界第一工业国」：另有 2010 年（制造业增加值）之说，属演讲内容，未改。 本篇为演讲文稿，按惯例未对演讲内容做网络检索核实，仅做文本层校对。
 
 
-[^ref1]: [新浪新闻](http://news.sina.com.cn/o/2018-11-20/doc-ihmutuec2035631.shtml?cre=tianyi&mod=pchp&loc=35&r=0&doct=0&rfunc=16&tj=none&tr=12)
-[^ref2]: [bbs.saraba1st.com](https://bbs.saraba1st.com/2b/thread-1868328-1-1.html)
-[^ref3]: [new.qq.com](https://new.qq.com/omn/20180903/20180903A1G6JV.html)
-[^ref4]: [edu.sina.com.cn](http://edu.sina.com.cn/gaokao/2019-11-11/doc-iicezzrr8696962.shtml)
-[^ref5]: [sohu.com](https://www.sohu.com/a/356827510_665455?spm=smpc.news-home.top-news5.3.1574851406765aEf2nxd&_f=index_chan08news_17)
-[^ref6]: [人民网](http://dangjian.people.com.cn/n/2013/0227/c117092-20619547.html)
+[^ref1]: [19年前的今天 中国人干了这样一件大事](http://news.sina.com.cn/o/2018-11-20/doc-ihmutuec2035631.shtml?cre=tianyi&mod=pchp&loc=35&r=0&doct=0&rfunc=16&tj=none&tr=12)
+[^ref2]: [bbs.saraba1st.com（已失效）](https://bbs.saraba1st.com/2b/thread-1868328-1-1.html)
+[^ref3]: [new.qq.com（已失效）](https://new.qq.com/omn/20180903/20180903A1G6JV.html)
+[^ref4]: [教育部答复“农民工随迁子女异地高考建议”](http://edu.sina.com.cn/gaokao/2019-11-11/doc-iicezzrr8696962.shtml)
+[^ref5]: [城管对不上班者发善意提醒，“兄弟情”用错地方_员工](https://www.sohu.com/a/356827510_665455?spm=smpc.news-home.top-news5.3.1574851406765aEf2nxd&_f=index_chan08news_17)
+[^ref6]: [���ɽΪ���Ƽ�&nbsp;�����ƶ���������](http://dangjian.people.com.cn/n/2013/0227/c117092-20619547.html)

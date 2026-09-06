@@ -127,7 +127,7 @@
 ### 事实订正
 
 [^1]: 「2022年泰国汽车年产量188万辆，全球排名11」→「全球排名10」（OICA 2022 统计：泰国产量 1,883,517 辆，居全球第 10；188 万辆即该口径总数，来源：OICA/Wikipedia List of countries by motor vehicle production）
-[^2]: 「直选议席甚至只少了一个」→「直选议席甚至一个不少」（2023 年泰国大选：远进党选区议席 112 席、为泰党 112 席，完全持平而非差一席，来源：英国议会下院图书馆简报 [commonslibrary.parliament.uk](https://commonslibrary.parliament.uk/research-briefings/cdp-2023-0119/) 、Asia Maior 年鉴）
+[^2]: 「直选议席甚至只少了一个」→「直选议席甚至一个不少」（2023 年泰国大选：远进党选区议席 112 席、为泰党 112 席，完全持平而非差一席，来源：英国议会下院图书馆简报 [Work of the Council of Europe](https://commonslibrary.parliament.uk/research-briefings/cdp-2023-0119/) 、Asia Maior 年鉴）
 
 ### 待核对
 
