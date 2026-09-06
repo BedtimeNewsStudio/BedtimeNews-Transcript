@@ -16,4 +16,4 @@
 
 ### 信息来源
 
-- 本篇为「睡前人间」公众号文章存档，已将全文与公众号原文（[mp.weixin.qq.com](https://mp.weixin.qq.com/s/ZrHL7bGxJqJvwHrw99y2xg)）逐段核对，正文文字与原文一致，无转写错误，不改措辞。
+- 本篇为「睡前人间」公众号文章存档，已将全文与公众号原文（[链接](https://mp.weixin.qq.com/s/ZrHL7bGxJqJvwHrw99y2xg)）逐段核对，正文文字与原文一致，无转写错误，不改措辞。

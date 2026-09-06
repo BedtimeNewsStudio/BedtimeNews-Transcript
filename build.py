@@ -447,8 +447,8 @@ def render_appendix(app, refs=None, p3_resolved=()):
         out += [f'- {_strip_proc(retitle_bullets(p))}' for p in app.pending]
         out.append('')
     txt = '\n'.join(out)
-    txt = re.sub(r'\[([^\[]+)\]\(\[([^\]]+)\]\(([^)]+)\)\)', r'[\2](\3)', txt)
-    txt = re.sub(r'\[([^\[]+)\]\(\[([^\]]+)\]\(([^)]+)\)\)', r'[\2](\3)', txt)
+    txt = strip_upstream_refs(txt)
+    txt = fold_links(txt)
     return txt
 
 
@@ -503,18 +503,120 @@ RE_UPSTREAM_REF = re.compile(
     r'[（(][^（）()]*?(?:上游|提交上游|已提交上游)\s*PR[^（）()]*?[）)]'
     r'|上游\s*PR[^，。；）)\s]*|(?<=[（(，、])PR[#：]?\d{2,4}(?=[）)，。])'
     r'|bedtimenews-archive-contents#\d+')
-RE_NESTED_LINK = re.compile(r'\[([^[\]]*)\[\1\]\(([^)]+)\)\]\)')
+# 短语级上游引用改写：先于通用删除执行，保持句子可读
+RE_UP_PHRASES = [
+    (re.compile(r'已在上游订正(?:正文)?（[^）]*PR[^）]*）'), '已订正'),
+    (re.compile(r'已在上游订正(?:正文)?'), '已订正'),
+    (re.compile(r'已在\s*PR\s*#?\d+\s*分支订正'), '已订正'),
+    (re.compile(r'勘误见\s*PR\s*#?\d+\s*评论\s*[；;]?'), ''),
+    (re.compile(r'[（(]PR\s*#?\d+\s*追加\s*commit[^）]*[）)]'), ''),
+    (re.compile(r'[（(]新\s*PR\s*#?\d+[^）]*[）)]'), ''),
+    (re.compile(r'上游\s*[A-Za-z]+/\S+?\.md'), ''),
+    (re.compile(r'追加\s*commit'), ''),
+    # 上游仓库 GitHub 链接整链删除（含显示名）；PR 编号兜底删除（字母边界防 GPR75 类误伤）
+    (re.compile(r'\[[^\]]*\]\(https?://[^\s)]*(?:github\.com/bedtimenews|bedtimenews-archive-contents)[^\s)]*\)'), ''),
+    (re.compile(r'\[[^\]]*\]\([^()]*bedtimenews-archive-contents[^()]*\)'), ''),
+    (re.compile(r'库内\s*(?:main|reference|business|commercial|opinion)/\S+?\.md'), ''),
+    (re.compile(r'上游仓库（bedtimenews-archive-contents）'), '源库'),
+    (re.compile(r'bedtimenews-archive-contents'), ''),
+    (re.compile(r'(?<![A-Za-z])PR\s*#?\s*\d{2,4}'), ''),
+]
 
 
-def strip_upstream_refs(text):
-    """删除附录中对上游 PR/仓库的引用（干净稿 standalone）。"""
-    t = RE_UPSTREAM_REF.sub('', text)
-    t = RE_NESTED_LINK.sub(lambda m: f'[{m.group(1)}]({m.group(3)})', t)
+def _tidy_punct(t):
     t = re.sub(r'（\s*）', '', t)
     t = re.sub(r'\(\s*\)', '', t)
     t = re.sub(r'[[ \t]+([，。；）])', r'\1', t)
     t = re.sub(r'([，。；])\s*([，。；])+', r'\1', t)
+    t = re.sub(r'。\s*。+', '。', t)
     return t
+
+
+def _match_link_at(t, i):
+    """从 t[i]=='[' 起解析一个 markdown 链接，返回 (end, display, target)；失败返回 None。
+    display 允许一层方括号嵌套；target 允许平衡括号（URL 带括号不炸）。"""
+    n = len(t)
+    j = i + 1
+    depth = 1
+    while j < n and depth:
+        if t[j] == '[':
+            depth += 1
+        elif t[j] == ']':
+            depth -= 1
+        j += 1
+    if depth or j >= n or t[j] != '(':
+        return None
+    disp = t[i + 1:j - 1]
+    k = j + 1
+    d = 1
+    while k < n and d:
+        if t[k] == '(':
+            d += 1
+        elif t[k] == ')':
+            d -= 1
+        k += 1
+    if d:
+        return None
+    return k, disp, t[j + 1:k - 1].strip()
+
+
+RE_FB_FOLD = re.compile(r'\[([^\]]+)\]\(\s*\[([^\]]+)\]\(([^)\s]+)\)[^)]*\)')
+
+
+def fold_links(text, passes=4):
+    """嵌套链接折叠至不动点（扫描器实现）：[X]([Y](url))→[X](url)（target 尾部
+    仅剩标点杂字符也折叠）；脚注目标链接 []([^refN])→[^refN]；空锚链接删除。"""
+    for _ in range(passes):
+        changed = False
+        out = []
+        i, n = 0, len(text)
+        while i < n:
+            if text[i] == '[':
+                m = _match_link_at(text, i)
+                if not m:
+                    # 容错回退：target 括号不平衡（标题含半角括号等残缺形态）
+                    fb = RE_FB_FOLD.match(text, i)
+                    if fb:
+                        out.append(f'[{fb.group(1)}]({fb.group(3)})')
+                        changed = True
+                        i = fb.end()
+                        continue
+                if m:
+                    end, disp, target = m
+                    inner = (re.match(r'\[([\s\S]*)\]\(([\s\S]*)\)', target)
+                             if target.startswith('[') else None)
+                    if inner and not _match_link_at(inner.group(2), 0) \
+                            and not re.search(r'[\[\]]', inner.group(2)):
+                        out.append(f'[{disp}]({inner.group(2)})')
+                        changed = True
+                        i = end
+                        continue
+                    if re.fullmatch(r'\[\^(?:ref)?\d+\][ \t]?', target):
+                        out.append((disp if disp.strip() else '') + target.strip())
+                        changed = True
+                        i = end
+                        continue
+                    if not disp.strip():
+                        out.append('')
+                        changed = True
+                        i = end
+                        continue
+            out.append(text[i])
+            i += 1
+        text = ''.join(out)
+        if not changed:
+            break
+    return text
+
+
+def strip_upstream_refs(text):
+    """删除附录中对上游 PR/仓库的引用（干净稿 standalone）。"""
+    t = text
+    for pat, rep in RE_UP_PHRASES:
+        t = pat.sub(rep, t)
+    t = RE_UPSTREAM_REF.sub('', t)
+    t = fold_links(t)
+    return _tidy_punct(t)
 
 
 def render_link(url, anchor=''):
@@ -822,6 +924,23 @@ def video_links(tabs, linkstatus=None, epnum=None):
     return '\n'.join(out)
 
 
+def p4_overlay(cfg_name, folder, name, body):
+    """P4 重排版覆盖层（.localonly/p4-reflow/）：上游源文本无句读的期，由代理恢复
+    标点+分段后存覆盖层；构建时替换正文。仅当内容等价（忽略空白与标点后逐字一致）
+    才生效，防止覆盖层与上游内容漂移。"""
+    p = REPO / '.localonly' / 'p4-reflow' / cfg_name / (folder or 'misc') / f'{name}.md'
+    if not p.exists():
+        return body
+    ov = p.read_text().strip()
+    if not ov:
+        return body
+    key = lambda s: re.sub(r'[\W\s]', '', s)
+    if key(ov) != key(body):
+        print(f'  [p4] 覆盖层与正文内容不一致，跳过: {cfg_name}/{folder or "misc"}/{name}')
+        return body
+    return ov
+
+
 def build_one(raw, bodies, commit_msgs=(), linkstatus=None, epnum=None, cfg_name=None, folder=None, name=None):
     title = re.search(r'^title:\s*(.+)', raw, re.M)
     title = title.group(1).strip() if title else ''
@@ -930,6 +1049,11 @@ def build_one(raw, bodies, commit_msgs=(), linkstatus=None, epnum=None, cfg_name
                     break
             anchored.append(placed)
 
+    body = fold_links(body)
+    body = re.sub(r'\]\(\[\^(?:ref)?\d+\]\)', '', body)    # 孤儿脚注链接残段
+    body = re.sub(r'^#{1,6}\s*\n', '', body, flags=re.M)    # 空标题行
+    body = p4_overlay(cfg_name, folder, name, body)
+
     out = [f'# {title}', '']
     if vlinks:
         out += ['## 视频', '', vlinks]
@@ -989,7 +1113,10 @@ def main():
     if tp_dir.exists():
         for p in tp_dir.rglob('*.json'):
             parts = p.relative_to(tp_dir).with_suffix('').parts
-            tp[tuple(parts)] = json.loads(p.read_text())
+            try:
+                tp[tuple(parts)] = json.loads(p.read_text())
+            except Exception:
+                pass  # 并发写盘容错
     globals()['TITLE_PLANS'] = tp
     us_path = REPO / '.localonly' / 'urlstatus.json'
     globals()['USTAT'] = json.loads(us_path.read_text()) if us_path.exists() else {}
@@ -999,7 +1126,10 @@ def main():
         for p in p3_dir.rglob('*.json'):
             parts = p.relative_to(p3_dir).with_suffix('').parts
             if len(parts) == 3:
-                p3r[tuple(parts)] = json.loads(p.read_text())
+                try:
+                    p3r[tuple(parts)] = json.loads(p.read_text())
+                except Exception:
+                    pass  # 代理并发写盘中，跳过本轮
     globals()['P3_RESULTS'] = p3r
     configs = {k: v for k, v in CONFIGS.items()
                if args.section is None or k == args.section}
