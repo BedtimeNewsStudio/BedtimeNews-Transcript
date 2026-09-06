@@ -625,9 +625,7 @@ def merge_short_paragraphs(body, short=80, cap=380):
             continue
         flush()
         # 字幕式块：≥4 行且多数行 <80 字 → 行间合并
-        n_short = sum(1 for l in lines if len(l.strip()) < 80)
-        if len(lines) >= 4 and n_short >= len(lines) * 0.7 \
-                and not b.startswith(('#', '>')):
+        if len(lines) >= 3 and not b.startswith(('#', '>')):
             out.append(_reflow_block(b, cap))
             continue
         out.append(b)
