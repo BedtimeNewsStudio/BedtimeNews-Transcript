@@ -727,6 +727,7 @@ def build_one(raw, bodies, commit_msgs=(), linkstatus=None, epnum=None, cfg_name
     for cm in commit_msgs:  # commit 信息里的验证/勘误
         classify_pr_body(cm, app)
 
+
     # 微博转发链等非正文段落删除
     body = re.sub(r'^.*?转发动态[：:].*\n?', '', body, flags=re.M)
     body = re.sub(r'^.*//@[^：:]{1,30}[：:].*\n?', '', body, flags=re.M)
@@ -744,6 +745,16 @@ def build_one(raw, bodies, commit_msgs=(), linkstatus=None, epnum=None, cfg_name
             blocks.pop(bi)
             break
     body = '\n\n'.join(blocks)
+
+    # 正文开头的孤立书名号行（镜像频道标题，如41期《存款不到50万…》）删除——
+    # 必须在转发链/日期行移除之后执行，否则它不是首块
+    blocks = re.split(r'\n\n+', body)
+    while blocks and re.match(r'^-{3,}$', blocks[0].strip()):
+        blocks.pop(0)
+    body = '\n\n'.join(blocks)
+    # 全文级：纯书名号独立块（镜像频道标题）与剧照图注残留删除
+    body = re.sub(r'^《[^》]{1,80}》\s*$', '', body, flags=re.M)
+    body = re.sub(r'^《[^》]+》剧照\s*$', '', body, flags=re.M)
     body = merge_short_paragraphs(body)            # 字幕式/单句小段合并
     body = denumber_headings(body)                 # 小节标题去编号
 
