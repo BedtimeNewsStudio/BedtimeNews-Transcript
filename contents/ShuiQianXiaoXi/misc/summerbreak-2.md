@@ -140,7 +140,7 @@
 
 ### 已核对
 
-- 「熟悉养猪」疑为「熟悉养鸽」（片中巴鲁养鸽子）。 → **已核实**：应为「养鸽」：《天空之城》中巴鲁照料鸽子（吉卜力资料库：he takes care of several pigeons），片中无养猪情节；此处为巴鲁技能描述。已在上游订正（新PR #2143）。（来源 [ghibli.fandom.com]([ghibli.fandom.com](https://ghibli.fandom.com/wiki/Castle_in_the_Sky))）
+- 应为「养鸽」：《天空之城》中巴鲁照料鸽子（吉卜力资料库：he takes care of several pigeons），片中无养猪情节；此处为巴鲁技能描述。已在上游订正（新PR #2143）。（来源 [ghibli.fandom.com](https://ghibli.fandom.com/wiki/Castle_in_the_Sky)）
 
 ### 待核对
 

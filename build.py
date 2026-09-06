@@ -425,7 +425,17 @@ def render_appendix(app, refs=None, p3_resolved=()):
         out.append('')
     if p3_resolved:
         out += ['### 已核对', '']
-        out += [retitle_bullets(r) for r in p3_resolved]
+        for r in p3_resolved:
+            line = retitle_bullets(r)
+            line = re.sub(r'^-\s*', '', line)
+            line = re.sub(r'^.*?(?:→\s*\*\*已核实\*\*：|已核实：)', '', line)
+            line = re.sub(r'核实有误：', '', line)
+            line = re.sub(r'[（(][^（）()]*上游[^（）()]*[）)]', '', line)
+            line = strip_upstream_refs(line)
+            line = re.sub(r'[，,]\s*未改[动]。?$', '。', line)
+            line = re.sub(r'[，,]?\s*已在原稿订正[^，。；）]*', '', line)
+            line = re.sub(r'\[([^\[]+)\]\(\[([^\]]+)\]\(([^)]+)\)\)', r'[\2](\3)', line)
+            out.append('- ' + line.strip())
         out.append('')
     if app.pending:
         out += ['### 待核对', '']
@@ -479,6 +489,24 @@ def link_title(url, anchor=''):
         if dom == k or dom.endswith('.' + k) or dom.endswith(k):
             return v
     return dom[:30]
+
+
+RE_UPSTREAM_REF = re.compile(
+    r'[（(][^（）()]*?(?:上游|提交上游|已提交上游)\s*PR[^（）()]*?[）)]'
+    r'|上游\s*PR[^，。；）)\s]*|(?<=[（(，、])PR[#：]?\d{2,4}(?=[）)，。])'
+    r'|bedtimenews-archive-contents#\d+')
+RE_NESTED_LINK = re.compile(r'\[([^[\]]*)\[\1\]\(([^)]+)\)\]\)')
+
+
+def strip_upstream_refs(text):
+    """删除附录中对上游 PR/仓库的引用（干净稿 standalone）。"""
+    t = RE_UPSTREAM_REF.sub('', text)
+    t = RE_NESTED_LINK.sub(lambda m: f'[{m.group(1)}]({m.group(3)})', t)
+    t = re.sub(r'（\s*）', '', t)
+    t = re.sub(r'\(\s*\)', '', t)
+    t = re.sub(r'[[ \t]+([，。；）])', r'\1', t)
+    t = re.sub(r'([，。；])\s*([，。；])+', r'\1', t)
+    return t
 
 
 def render_link(url, anchor=''):
