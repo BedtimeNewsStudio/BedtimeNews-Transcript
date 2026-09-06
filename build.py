@@ -378,8 +378,9 @@ def pr_map():
             continue
         x = b.split('/', 1)[1]
         key = None
-        if re.match(r'^\d+([bc]|-retry)?$', x):
-            key = int(re.match(r'^(\d+)', x).group(1))
+        mm = re.match(r'^(?:transcribe-)?(\d+)([bc]|-retry)?$', x)
+        if mm:
+            key = int(mm.group(1))
         elif re.match(r'^\d+-\d+$', x):
             key = x
         else:
