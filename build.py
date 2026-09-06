@@ -403,9 +403,14 @@ def extract_old_new(b):
 def render_appendix(app, refs=None, p3_resolved=()):
     out = []
     out += ['## 附录', '']
+    def _strip_proc(t):
+        t = re.sub(r'音频[^，。；）]*?(?:无法定案|不能定案)[，。；）]?\s*', '', t)
+        t = re.sub(r'维持(?:原文|原稿|口播)[。]?', '', t)
+        t = re.sub(r'[，,]?\s*未改[动。]?', '', t)
+        return t.strip()
     if app.checks:
         out += ['### 信息来源', '']
-        out += [f'- {retitle_bullets(c)}' for c in app.checks]
+        out += [f'- {_strip_proc(retitle_bullets(c))}' for c in app.checks]
         out.append('')
     if refs:
         out += ['### 本文链接', '']
@@ -439,7 +444,7 @@ def render_appendix(app, refs=None, p3_resolved=()):
         out.append('')
     if app.pending:
         out += ['### 待核对', '']
-        out += [f'- {retitle_bullets(p)}' for p in app.pending]
+        out += [f'- {_strip_proc(retitle_bullets(p))}' for p in app.pending]
         out.append('')
     return '\n'.join(out)
 
