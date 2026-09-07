@@ -234,10 +234,10 @@ RE_FACTUAL = re.compile(
     r'http|经核实|核实为|核实：|史料|来源|通行|对应|互证|查证|据.*报道|'
     r'史实|纪年|享年|日期|年份|年代|年龄|省份|省界|口误|口播.*实为|实为')
 RE_BOILER = re.compile(
-    r'iframe|占位符|管理员补充|YouTubeVID|BVID|留待|维持原编号|敬请谅解|'
+    r'iframe|占位符|管理员补充|YouTubeVID|BVID|留待|维持原编号|敬请谅解|末尾注明|'
     r'本校对仅|校对规则|敏感.*(未|免).*(检索|核对)|按惯例.*(检索|核对)')
 RE_BOILER_TAIL = re.compile(
-    r'B站/?YouTube iframe|YouTube嵌入地址|嵌入地址中的|本页视频区|留待管理员补充|占位符未?动')
+    r'末尾注明|B站/?YouTube iframe|YouTube嵌入地址|嵌入地址中的|本页视频区|留待管理员补充|占位符未?动')
 RE_NOCHANGE = re.compile(r'无[^。；]{0,14}需?订正|无需?修正|无日期.{0,8}错误|未发现.{0,8}(错误|订正)')
 RE_PENDING_HEAD = re.compile(r'待核实|待核对|存疑|待确认|遗留')
 RE_FACT_HEAD = re.compile(r'事实核对|事实订正|系统性|事实性|来源|核实|核对说明|核对（|已核实|订正|勘误|补充')
