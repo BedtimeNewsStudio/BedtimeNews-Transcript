@@ -1023,42 +1023,49 @@ def build_one(raw, bodies, commit_msgs=(), linkstatus=None, epnum=None, cfg_name
                 pos = bn.find(key)
             if pos < 0:
                 continue  # 锚点在成稿中不存在，丢弃
-            # norm 空间位置 → raw 位置，并定位所在块，块内切分插入标题
-            acc = 0
-            raw_at = None
-            for ci, ch in enumerate(body):
-                if not ch.isspace():
-                    if acc == pos:
-                        raw_at = ci
-                        break
-                    acc += 1
-            if raw_at is None:
-                continue
+            # 块级定位：norm 空间逐块累计（分隔符为纯空白，norm 长度 0）
             segs = re.split(r'(\n\n+)', body)
-            cursor = 0
+            spans = []  # (si, norm_start, norm_end)
+            c = 0
             for si, seg in enumerate(segs):
                 if re.fullmatch(r'\n+', seg or ''):
                     continue
                 sn = norm(seg)
-                if cursor + len(sn) >= pos or si == len(segs) - 1:
-                    if seg.strip().startswith('#'):
-                        continue  # 块本身是标题行，异常情形放弃
-                    # 块内 raw 偏移
-                    bacc = 0
-                    cut = None
-                    for cj, ch in enumerate(seg):
-                        if not ch.isspace():
-                            if cursor + bacc == pos:
-                                cut = cj
-                                break
-                            bacc += 1
-                    if cut is None or cut == 0:
-                        segs[si] = f'## {t}\n\n' + seg
-                    else:
-                        segs[si] = seg[:cut].rstrip() + f'\n\n## {t}\n\n' + seg[cut:].lstrip()
-                    inserted = True
+                spans.append((si, c, c + len(sn)))
+                c += len(sn)
+            hit = None
+            for si, s0, s1 in spans:
+                if s0 <= pos < s1 or si == spans[-1][0]:
+                    hit = (si, s0, s1)
                     break
-                cursor += len(sn)
+            if hit is None:
+                continue
+            si, s0, s1 = hit
+            seg = segs[si]
+            if seg.strip().startswith('#'):
+                # 落在标题行块：插到该块之后、下一个内容块之前
+                if si + 2 < len(segs):
+                    segs[si + 2] = f'## {t}\n\n' + segs[si + 2]
+                    body = ''.join(segs)
+                continue
+            if pos <= s0:
+                segs[si] = f'## {t}\n\n' + seg
+                body = ''.join(segs)
+                continue
+            # 块内 raw 切点：块内局部 norm 走到 pos - s0
+            target = pos - s0
+            acc = 0
+            cut = None
+            for cj, ch in enumerate(seg):
+                if not ch.isspace():
+                    if acc == target:
+                        cut = cj
+                        break
+                    acc += 1
+            if cut is None or cut == 0:
+                segs[si] = f'## {t}\n\n' + seg
+            else:
+                segs[si] = seg[:cut].rstrip() + f'\n\n## {t}\n\n' + seg[cut:].lstrip()
             body = ''.join(segs)
 
     # 脚注锚定：在正文里找“改后文本”，插入 [^N]
