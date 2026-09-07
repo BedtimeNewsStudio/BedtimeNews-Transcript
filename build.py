@@ -472,6 +472,7 @@ DOMAIN_TITLES = {
     'workercn.cn': '工人日报', 'chinanews.com': '中国新闻网', 'ce.cn': '中国经济网',
 }
 TITLE_PLANS = None
+PUBDATES = {}  # 「发布日期」：.localonly/pubdates.json（key: cfg_name/folder/name）
 USTAT = None  # urlstatus 由 main() 载入
 BEDTIME_RE = re.compile(r'https?://[^\s)」』】]*(?:bedtime\.news|archive\.bedtime\.news)[^\s)」』】]*')
 WIKI_LINK_RE = re.compile(r'\[([^\]]+)\]\((?:/[^)]*|[^)]*\.md|https?://[^)]*bedtime\.news[^)]*)\)')
@@ -1108,6 +1109,9 @@ def build_one(raw, bodies, commit_msgs=(), linkstatus=None, epnum=None, cfg_name
         apply_titles(plan)
 
     out = [f'# {title}', '']
+    pub = PUBDATES.get(f'{cfg_name}/{folder or "misc"}/{name}')
+    if pub and pub.get('date'):
+        out += [f"**发布日期**：{pub['date']}", '']
     if vlinks:
         out += ['## 视频', '', vlinks]
     if summary:
@@ -1184,6 +1188,8 @@ def main():
                 except Exception:
                     pass  # 代理并发写盘中，跳过本轮
     globals()['P3_RESULTS'] = p3r
+    pd_path = REPO / '.localonly' / 'pubdates.json'
+    globals()['PUBDATES'] = json.loads(pd_path.read_text()) if pd_path.exists() else {}
     configs = {k: v for k, v in CONFIGS.items()
                if args.section is None or k == args.section}
     missing_pr, no_app, unrouted = [], [], []
