@@ -1009,17 +1009,57 @@ def build_one(raw, bodies, commit_msgs=(), linkstatus=None, epnum=None, cfg_name
     def apply_titles(tbl):
         nonlocal body
         for item in tbl:
-            anchor = norm(item.get('anchor', ''))[:20]
-            t = item.get('title', '').strip()
-            if not anchor or not t:
+            t = (item.get('title') or '').strip()
+            anchor = norm(item.get('anchor', ''))
+            if not t or len(anchor) < 8:
                 continue
-            blocks = re.split(r'\n\n+', body)
-            for bi, blk in enumerate(blocks):
-                first = re.sub(r'^[-*>#\s]+', '', blk.strip())
-                if norm(first)[:20] == anchor:
-                    blocks.insert(bi, f'## {t}')
+            if re.search(rf'^## {re.escape(t)}\s*$', body, re.M):
+                continue  # 幂等：标题已存在
+            key = anchor[:20]
+            bn = norm(body)
+            pos = bn.find(key)
+            if pos < 0:
+                key = anchor[:12]
+                pos = bn.find(key)
+            if pos < 0:
+                continue  # 锚点在成稿中不存在，丢弃
+            # norm 空间位置 → raw 位置，并定位所在块，块内切分插入标题
+            acc = 0
+            raw_at = None
+            for ci, ch in enumerate(body):
+                if not ch.isspace():
+                    if acc == pos:
+                        raw_at = ci
+                        break
+                    acc += 1
+            if raw_at is None:
+                continue
+            segs = re.split(r'(\n\n+)', body)
+            cursor = 0
+            for si, seg in enumerate(segs):
+                if re.fullmatch(r'\n+', seg or ''):
+                    continue
+                sn = norm(seg)
+                if cursor + len(sn) >= pos or si == len(segs) - 1:
+                    if seg.strip().startswith('#'):
+                        continue  # 块本身是标题行，异常情形放弃
+                    # 块内 raw 偏移
+                    bacc = 0
+                    cut = None
+                    for cj, ch in enumerate(seg):
+                        if not ch.isspace():
+                            if cursor + bacc == pos:
+                                cut = cj
+                                break
+                            bacc += 1
+                    if cut is None or cut == 0:
+                        segs[si] = f'## {t}\n\n' + seg
+                    else:
+                        segs[si] = seg[:cut].rstrip() + f'\n\n## {t}\n\n' + seg[cut:].lstrip()
+                    inserted = True
                     break
-            body = '\n\n'.join(blocks)
+                cursor += len(sn)
+            body = ''.join(segs)
 
     plan = TITLE_PLANS.get((cfg_name, folder, name)) if TITLE_PLANS else None
     if p3 and p3.get('titles'):
