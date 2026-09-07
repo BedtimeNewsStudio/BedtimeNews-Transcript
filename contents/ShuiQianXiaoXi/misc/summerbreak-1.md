@@ -63,12 +63,15 @@
 [^1]: 「2022年泰国汽车年产量188万辆，全球排名11」→「全球排名10」（OICA 2022 统计：泰国产量 1,883,517 辆，居全球第 10；188 万辆即该口径总数，来源：OICA/Wikipedia List of countries by motor vehicle production）
 [^2]: 「直选议席甚至只少了一个」→「直选议席甚至一个不少」（2023 年泰国大选：远进党选区议席 112 席、为泰党 112 席，完全持平而非差一席，来源：英国议会下院图书馆简报 [Work of the Council of Europe](https://commonslibrary.parliament.uk/research-briefings/cdp-2023-0119/) 、Asia Maior 年鉴）
 
+### 已核对
+
+- 巴育2010年10月至2014年10月任泰国皇家陆军总司令，2014年5月以该职发动政变；「政军司令」为ASR误转，正文已作「陆军司令」，职务属实。（来源 [维基百科](https://zh.wikipedia.org/zh-hans/%E5%B7%B4%E8%82%B2%C2%B7%E5%8D%A0%E5%A5%A5%E5%B7%AE)）
+- 确系节目口径：IMF当年估算口径下泰国2022年人均GDP约7600-7800美元、排名88上下可对上；但IMF/世界银行最终现价美元口径为约6910美元（世界银行），不同时点与机构差异明显，无法锁定第88名的唯一出处，照录。（来源 [data.worldbank.org.cn](https://data.worldbank.org.cn/indicator/NY.GDP.PCAP.CD?locations=TH)）
+
 ### 待核对
 
-- 「现总理巴育在当政军司令时」：巴育 2014 年政变时的职务是陆军司令，「政军司令」疑为转写误差，但无法确认口播原词
 - 「给认为产业层次落差发展模式起了一个名字」：「认为」疑为串音赘词，无法确认原话
 - 「但苏联对其他国家的政策就没你这么客气了」：「你」指代不明，疑为口播或转写问题
-- 「去年泰国人均GDP7600多美元，IMF排名全球第88」为节目口径，不同机构数值有差异
 
 
 [^ref1]: [转载要求](https://mp.weixin.qq.com/s/lAykTTrSjDxadBYtOaseOw)
