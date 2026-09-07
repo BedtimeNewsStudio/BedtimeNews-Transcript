@@ -508,6 +508,8 @@ RE_UP_PHRASES = [
     (re.compile(r'已在上游订正(?:正文)?（[^）]*PR[^）]*）'), '已订正'),
     (re.compile(r'已在上游订正(?:正文)?'), '已订正'),
     (re.compile(r'已在\s*PR\s*#?\d+\s*分支订正'), '已订正'),
+    (re.compile(r'已开/追加上游订正'), '已订正'),
+    (re.compile(r'[，,]\s*至上游\s*并附核对评论'), ''),
     (re.compile(r'勘误见\s*PR\s*#?\d+\s*评论\s*[；;]?'), ''),
     (re.compile(r'[（(]PR\s*#?\d+\s*追加\s*commit[^）]*[）)]'), ''),
     (re.compile(r'[（(]新\s*PR\s*#?\d+[^）]*[）)]'), ''),
