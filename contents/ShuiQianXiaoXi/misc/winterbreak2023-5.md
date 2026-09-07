@@ -1,5 +1,7 @@
 # 对付少年杀人案，下限是汉谟拉比法典
 
+**发布日期**：2024-03-20
+
 ## 视频
 
 - [YouTube](https://www.youtube.com/watch?v=HEmm9O9S2zk)

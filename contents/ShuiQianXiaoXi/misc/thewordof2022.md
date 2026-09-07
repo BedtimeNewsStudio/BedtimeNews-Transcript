@@ -1,5 +1,7 @@
 # 睡前消息年度汉字：噩
 
+**发布日期**：2022-12-31
+
 ## 视频
 
 - [Bilibili](https://www.bilibili.com/video/BV1Lv4y1B7Qj)

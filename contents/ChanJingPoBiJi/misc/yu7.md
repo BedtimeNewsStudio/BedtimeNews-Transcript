@@ -1,5 +1,7 @@
 # 小米YU7创造工业奇迹，但大战还在后面【你手边的北京智造004】
 
+**发布日期**：2025-07-05
+
 ## 视频
 
 - [Bilibili](https://www.bilibili.com/video/BV1hQ3XzmENn)

@@ -1,5 +1,7 @@
 # 【2019年终演讲】社会斗争讲科学，中等收入无陷阱
 
+**发布日期**：2019-12-16
+
 ## 视频
 
 - [Bilibili](https://www.bilibili.com/video/BV1eJ411k7vN)

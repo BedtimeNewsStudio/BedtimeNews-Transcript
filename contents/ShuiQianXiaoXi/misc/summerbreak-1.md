@@ -1,5 +1,7 @@
 # 【睡前消息2023暑假版第一期】拉泰国一把，对中国有好处
 
+**发布日期**：2023-06-09
+
 ## 视频
 
 - [YouTube](https://www.youtube.com/watch?v=KZx-rivDa90)

@@ -1,5 +1,7 @@
 # 【睡前消息暑假版第2期】《天空之城》需要续集，小镇青年都是编剧
 
+**发布日期**：2023-06-21
+
 ## 视频
 
 - [YouTube](https://www.youtube.com/watch?v=A8OffSQPnuk)
