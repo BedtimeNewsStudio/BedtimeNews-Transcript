@@ -750,7 +750,10 @@ def merge_short_paragraphs(body, cap=380):
         lines = [l for l in blk.split('\n') if l.strip()]
         if len(lines) == 1:
             l = lines[0].strip() if lines else ''
-            if (not is_protect(l) and not l.endswith('？')
+            # 短图注/标题式行（≤40字且无句末标点）保持独立成段，不并入散文组
+            is_caption = (len(l) <= 40
+                          and not l.endswith(('。', '！', '？', '；')))
+            if (not is_protect(l) and not l.endswith('？') and not is_caption
                     and not re.match(r'^-{3,}$', l)):
                 group.append(l)
                 continue
