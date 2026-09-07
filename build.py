@@ -937,7 +937,7 @@ def p4_overlay(cfg_name, folder, name, body):
     ov = p.read_text().strip()
     if not ov:
         return body
-    key = lambda s: re.sub(r'[\W\s]', '', s)
+    key = lambda s: re.sub(r'[\W\s]', '', re.sub(r'^#{1,6}[^\n]*$', '', s, flags=re.M))
     if key(ov) != key(body):
         print(f'  [p4] 覆盖层与正文内容不一致，跳过: {cfg_name}/{folder or "misc"}/{name}')
         return body
@@ -1061,12 +1061,6 @@ def build_one(raw, bodies, commit_msgs=(), linkstatus=None, epnum=None, cfg_name
                 cursor += len(sn)
             body = ''.join(segs)
 
-    plan = TITLE_PLANS.get((cfg_name, folder, name)) if TITLE_PLANS else None
-    if p3 and p3.get('titles'):
-        plan = (plan or []) + p3['titles']
-    if plan and not re.search(r'^## ', body, re.M):  # 已有小节的不再加
-        apply_titles(plan)
-
     # 脚注锚定：在正文里找“改后文本”，插入 [^N]
     anchored = []
     if app.corr:
@@ -1096,6 +1090,13 @@ def build_one(raw, bodies, commit_msgs=(), linkstatus=None, epnum=None, cfg_name
     body = re.sub(r'\]\(\[\^(?:ref)?\d+\]\)', '', body)    # 孤儿脚注链接残段
     body = re.sub(r'^#{1,6}\s*\n', '', body, flags=re.M)    # 空标题行
     body = p4_overlay(cfg_name, folder, name, body)
+
+    # 标题插入放在 P4 覆盖层之后：锚点按成稿（含覆盖层）段落写，幂等护栏防重复
+    plan = TITLE_PLANS.get((cfg_name, folder, name)) if TITLE_PLANS else None
+    if p3 and p3.get('titles'):
+        plan = (plan or []) + p3['titles']
+    if plan:
+        apply_titles(plan)
 
     out = [f'# {title}', '']
     if vlinks:
