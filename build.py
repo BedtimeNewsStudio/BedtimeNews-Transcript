@@ -283,6 +283,9 @@ def bullets(content):
                 continue
             out.append(s)
         elif out:
+            # 尾注/说明性续行（注：/另：/末尾注明）不并入条目，整行跳过
+            if re.match(r'^(注：|另：|末尾注明[:：])', s) or RE_BOILER.search(s[:16]):
+                continue
             out[-1] += ' ' + s
         elif not RE_BOILER.search(s):
             out.append(s)
