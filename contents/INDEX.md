@@ -6,4 +6,4 @@
 - [CanKaoXinXi](CanKaoXinXi/INDEX.md)（646 篇）
 - [ChanJingPoBiJi](ChanJingPoBiJi/INDEX.md)（136 篇）
 - [GaoJian](GaoJian/INDEX.md)（64 篇）
-- [JiangDianHeiHua](JiangDianHeiHua/INDEX.md)（71 篇）
+- [JiangDianHeiHua](JiangDianHeiHua/INDEX.md)（72 篇）
