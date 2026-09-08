@@ -1131,6 +1131,8 @@ def build_one(raw, bodies, commit_msgs=(), linkstatus=None, epnum=None, cfg_name
         out.append('')
         out += refnotes
     text = '\n'.join(out).rstrip() + '\n'
+    # 双层同址链接收敛：[[a](u)](u) → [a](u)（PR 附录来源常见畸形）
+    text = re.sub(r'\[\[([^\]]+)\]\(([^()\s]+)\)\]\(\2\)', r'[\1](\2)', text)
     return text, app, anchored
 
 # ---------------------------------------------------------------- build
