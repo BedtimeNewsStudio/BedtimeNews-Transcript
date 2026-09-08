@@ -235,11 +235,13 @@ RE_FACTUAL = re.compile(
     r'史实|纪年|享年|日期|年份|年代|年龄|省份|省界|口误|口播.*实为|实为')
 RE_BOILER = re.compile(
     r'iframe|占位符|管理员补充|YouTubeVID|BVID|留待|维持原编号|敬请谅解|末尾注明|'
-    r'本校对仅|校对规则|敏感.*(未|免).*(检索|核对)|按惯例.*(检索|核对)')
+    r'本校对仅|校对规则|敏感.*(未|免).*(检索|核对)|按惯例.*(检索|核对)|'
+    r'上一提交|误带出|与本分支主题无关|恢复为与|Claude|anthropic')
 RE_BOILER_TAIL = re.compile(
     r'末尾注明|B站/?YouTube iframe|YouTube嵌入地址|嵌入地址中的|本页视频区|留待管理员补充|占位符未?动')
 RE_NOCHANGE = re.compile(r'无[^。；]{0,14}需?订正|无需?修正|无日期.{0,8}错误|未发现.{0,8}(错误|订正)')
 RE_PENDING_HEAD = re.compile(r'待核实|待核对|存疑|待确认|遗留')
+RE_NO_AUDIO_BODY = re.compile(r'^无（本页无音频转写正文）')
 RE_FACT_HEAD = re.compile(r'事实核对|事实订正|系统性|事实性|来源|核实|核对说明|核对（|已核实|订正|勘误|补充')
 RE_SKIP_HEAD = re.compile(
     r'错别字|标点|格式|重排|审计|difflib|组段|音频复核|二次复核|二次校对|第二轮|'
@@ -289,7 +291,9 @@ def bullets(content):
             out[-1] += ' ' + s
         elif not RE_BOILER.search(s):
             out.append(s)
-    return [t for t in (RE_BOILER_TAIL.split(x)[0].strip() for x in out) if t]
+    # RE_BOILER_TAIL 截尾后可能留下悬空的「（」（如「无…。 （B站/YouTube iframe…」），一并剥掉
+    return [t for t in (re.sub(r'[（(]\s*$', '',
+                        RE_BOILER_TAIL.split(x)[0].strip()) for x in out) if t]
 
 
 def norm(text):
@@ -344,14 +348,19 @@ def classify_pr_body(body, app):
                     app.add_pending(b)
         elif RE_PENDING_HEAD.search(head_clean):
             for b in bullets(content):
+                if RE_NO_AUDIO_BODY.match(b):
+                    continue  # 「无（本页无音频转写正文）」是占位说明，非待核对条目
                 app.add_pending(b)
-        elif RE_SKIP_HEAD.search(head_clean):
-            # 纯过程/格式记录：不进附录
-            pass
         elif RE_FACT_HEAD.search(head_clean) or CONTAINER_HEAD.search(head_clean):
             for b in bullets(content):
                 classify_bullet(b, app)
+        elif RE_SKIP_HEAD.search(head_clean):
+            # 纯过程/格式记录：不进附录
+            pass
         # 其余标题（如“审计”）不进附录
+        # 注意 FACT 必须先于 SKIP 判定：混合标题「错别字／事实订正」若被 SKIP（错别字）
+        # 整节吞掉，其中真正的年份/人物等事实订正（0149 案例）会静默丢失；
+        # classify_bullet 自带逐条分流（转写类不入附录），可安全放行。
 
 
 def classify_bullet(b, app):
@@ -965,7 +974,19 @@ def build_one(raw, bodies, commit_msgs=(), linkstatus=None, epnum=None, cfg_name
     for _num, b in bodies:
         classify_pr_body(b, app)
     for cm in commit_msgs:  # commit 信息里的验证/勘误
-        classify_pr_body(cm, app)
+        # 提交主题行（docs:/chore:/fix: …）是变更摘要而非订正内容：主题里「订正…年龄」
+        # 之类恰好凑齐 change+factual 关键词会误入附录（0149 案例的 [^1] 孤儿脚注）。
+        # 剥离主题行、git trailer（Co-Authored-By 等）与 cherry-pick 尾注。
+        cm_body = '\n'.join(
+            l for l in cm.split('\n')
+            if not re.match(r'^(docs?|chore|fix|feat|refactor|style|test)\s*[:：]', l, re.I)
+            and not re.match(r'^[A-Za-z][\w-]*-By\s*:', l)
+            and not re.match(r'^Claude[-\w]*\s*:', l, re.I)
+            and not re.match(r'^\(\s*cherry picked from', l, re.I))
+        # commit 正文可含真实的音频互证订正（无 URL 但有「互证/查证」实据，0241 案例），
+        # 不能按 URL 门禁一刀切；housekeeping 叙述由 RE_BOILER 的 housekeeping 词拦下
+        if cm_body.strip():
+            classify_pr_body(cm_body, app)
 
 
     # 微博转发链等非正文段落删除
@@ -1083,7 +1104,8 @@ def build_one(raw, bodies, commit_msgs=(), linkstatus=None, epnum=None, cfg_name
         for idx, (b, old, new) in enumerate(app.corr, 1):
             placed = False
             for cand in filter(None, [new]):
-                cand_n = norm(cand)
+                # PR 摘录常带 **强调** 等记号，正文是纯文本：先剥再比
+                cand_n = norm(re.sub(r'[*`]+', '', cand))
                 if len(cand_n) < 2:
                     continue
                 body_n = norm(body)
