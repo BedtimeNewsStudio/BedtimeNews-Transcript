@@ -1,7 +1,6 @@
 # 睡前消息编辑部·全期校对文本
 
-基于 [bedtimenews-archive-contents](https://github.com/bedtimenews/bedtimenews-archive-contents)
-多步校对（文字校对 → 音频交叉验证 → 联网事实核查）之后的最终干净版本，覆盖五个栏目。
+《睡前消息》及各子栏目多步校对（文字校对 → 音频交叉验证 → 联网事实核查）之后的最终干净版本，覆盖五个栏目。
 
 - 仅 Markdown 纯文本：无图片、无字体标签、无 wiki 类标记
 - 顶部 B站/YouTube 嵌入改为纯 URL 链接（官方优先；非官方补档标注「（非官方补档）」；官方已删除的注明删除）
@@ -37,8 +36,7 @@ contents/ShuiQianXiaoXi/
 
 ## 生成方式
 
-`build.py` 从校对集成分支（`integration/proofread-all`）读取文稿，并抓取上游全部校对
-PR 描述生成附录：
+`build.py` 从校对集成分支读取文稿，并抓取全部校对 PR 描述生成附录：
 
 ```sh
 python3 build.py --force                  # 全栏目全量重建（--refresh-prs 先刷新 PR 缓存）
