@@ -1,9 +1,7 @@
-# bedtimenews-md 节目总索引
+# 总索引
 
-基于多步校对的干净 Markdown 文本。
-
-- [ShuiQianXiaoXi](ShuiQianXiaoXi/INDEX.md)（894 篇）
-- [CanKaoXinXi](CanKaoXinXi/INDEX.md)（648 篇）
-- [ChanJingPoBiJi](ChanJingPoBiJi/INDEX.md)（136 篇）
-- [GaoJian](GaoJian/INDEX.md)（66 篇）
-- [JiangDianHeiHua](JiangDianHeiHua/INDEX.md)（72 篇）
+- [睡前消息](ShuiQianXiaoXi/INDEX.md)
+- [参考信息](CanKaoXinXi/INDEX.md)
+- [高见](GaoJian/INDEX.md)
+- [讲点黑话](JiangDianHeiHua/INDEX.md)
+- [产经破壁机](ChanJingPoBiJi/INDEX.md)
