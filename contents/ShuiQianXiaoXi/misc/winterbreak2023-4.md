@@ -1,5 +1,7 @@
 # 家财万贯 农夫山泉“带毛”不算
 
+**发布日期**：2024-03-12
+
 ## 视频
 
 - [YouTube](https://www.youtube.com/watch?v=fspyQDvqSvc)

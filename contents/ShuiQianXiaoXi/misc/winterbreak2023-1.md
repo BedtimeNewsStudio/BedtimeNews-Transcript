@@ -1,8 +1,11 @@
 # 人人都说哈尔滨“泼天富贵”，建议到此为止
 
+**发布日期**：2024-02-10
+
 ## 视频
 
 - [Bilibili（非官方补档）](https://www.bilibili.com/video/BV1ma4y127AZ)
+- [Google Drive（非官方补档）](https://drive.google.com/file/d/134rvezEIlXp131_B3Wr-UhRb362ULs5u/view?usp=sharing)
 
 ## 正文
 

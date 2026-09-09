@@ -1,5 +1,7 @@
 # 激励草台班子，繁荣中国文化
 
+**发布日期**：2024-02-10
+
 ## 视频
 
 - [Bilibili](https://www.bilibili.com/video/BV12i4y1W77e)

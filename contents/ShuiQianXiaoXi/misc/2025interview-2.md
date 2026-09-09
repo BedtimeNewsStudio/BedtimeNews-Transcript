@@ -1,5 +1,7 @@
 # 一个43岁资深小镇青年，如何消解世界的「残酷」
 
+**发布日期**：2025-06-13
+
 ## 视频
 
 - [Bilibili](https://www.bilibili.com/video/BV1hKMuzUEXA)

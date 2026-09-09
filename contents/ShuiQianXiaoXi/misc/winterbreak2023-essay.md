@@ -1,8 +1,11 @@
 # 讨论人口问题的三个层次，你在哪一层？——马督工2024年春节回乡随笔
 
+**发布日期**：2024-02-10
+
 ## 视频
 
 - [Bilibili（非官方补档）](https://www.bilibili.com/video/BV1Du4m1N7UD)
+- [Google Drive（非官方补档）](https://drive.google.com/file/d/1ZQs0EivK7W0bwxKCiydqZLgw80EVZDFB/view?usp=sharing)
 
 ## 正文
 

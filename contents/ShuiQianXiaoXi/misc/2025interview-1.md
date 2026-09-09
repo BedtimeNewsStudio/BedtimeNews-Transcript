@@ -1,5 +1,7 @@
 # 当一个激进的中年男性，试着理解自己和世界的关联
 
+**发布日期**：2025-06-06
+
 ## 视频
 
 - [Bilibili](https://www.bilibili.com/video/BV1fATuzoEvL)
