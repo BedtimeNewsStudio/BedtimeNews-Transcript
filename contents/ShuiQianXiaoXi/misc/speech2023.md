@@ -1,5 +1,9 @@
 # 激励草台班子，繁荣中国文化
 
+## 视频
+
+- [Bilibili](https://www.bilibili.com/video/BV12i4y1W77e)
+
 ## 正文
 
 # 激励草台班子，繁荣中国文化
